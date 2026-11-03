@@ -1,0 +1,20 @@
+{
+  "name": "@oneapi/sdk",
+  "version": "1.0.0",
+  "description": "Unified JavaScript SDK for OneAPI Gateway",
+  "type": "module",
+  
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+    
+  },
+  "scripts": {
+    "test:import": "node -e \"import('./src/index.js').then(() => console.log('OneAPI SDK loaded successfully'))\"",
+    "dev:mock": "node mock-gateway.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+  
+}
