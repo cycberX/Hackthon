@@ -265,7 +265,7 @@
              window.__ONEAPI_BASE_URL__ ||
              '')
           : '';
-      this.baseURL = (winBase || 'http://localhost:5000/api/v1').replace(/\/+$/, '');
+      this.baseURL = (winBase || 'https://hackthon-seven-gules.vercel.app/api/v1').replace(/\/+$/, '');
 
       this.ai = new AIResource(this);
       this.weather = new WeatherResource(this);

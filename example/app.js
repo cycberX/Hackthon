@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
         window.ONEAPI_BASE_URL ||
         window.API_BASE_URL ||
         localStorage.getItem('oneapi_base_url'))) ||
-    'http://localhost:5000',
+    'https://hackthon-seven-gules.vercel.app',
   PROVIDER: 'auto',
   MODEL: 'auto',
 };

@@ -5,6 +5,8 @@
  */
 
 (function () {
+  var DEFAULT_BASE_URL = 'https://hackthon-seven-gules.vercel.app';
+
   function resolveBaseUrl() {
     // 1. Check browser localStorage override (set via UI or settings)
     try {
@@ -21,16 +23,11 @@
       if (window.ONEAPI_BASE_URL) return window.ONEAPI_BASE_URL.replace(/\/+$/, '');
       if (window.API_BASE_URL) return window.API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
-      // 3. Localhost fallback
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'http://localhost:5000';
-      }
-
-      // 4. Remote deployment fallback
-      return window.location.origin;
+      // 3. Fallback to default base path
+      return DEFAULT_BASE_URL;
     }
 
-    return 'http://localhost:5000';
+    return DEFAULT_BASE_URL;
   }
 
   var baseUrl = resolveBaseUrl();
