@@ -51,7 +51,7 @@ export default function LoginPage() {
         authStorage.setUser(res.data.user);
       }
 
-      router.push('/dashboard');
+      router.push('/dashboard/projects');
     } catch (err: any) {
       setError(err.message || 'Login failed.');
       setLoading(false);
