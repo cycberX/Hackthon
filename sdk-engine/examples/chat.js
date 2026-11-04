@@ -1,9 +1,8 @@
 import { OneAPI } from "../src/index.js";
 
 const oneapi = new OneAPI({
-  apiKey: "demo-token",
-  projectId: "demo-project",
-  baseURL: "http://localhost:5000/api/v1",
+  apiKey: process.env.ONEAPI_API_KEY || "demo-token",
+  projectId: process.env.ONEAPI_PROJECT_ID || "demo-project",
 });
 
 async function main() {

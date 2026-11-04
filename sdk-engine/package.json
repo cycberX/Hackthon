@@ -1,26 +1,49 @@
 {
-  "name": "sdk-engine",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@cycberX/oneapi",
+  "version": "1.1.0",
+  "description": "Unified JavaScript & TypeScript SDK for OneAPI Gateway with Automated Multi-Provider Failover",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "types",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test:import": "node -e \"import('./src/index.js').then(() => console.log('OneAPI SDK loaded successfully'))\"",
+    "example:chat": "node examples/chat.js",
+    "example:all": "node examples/all-domains.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "@apidevtools/swagger-parser": "^13.1.0",
-    "archiver": "^8.0.0",
-    "cors": "^2.8.6",
-    "dotenv": "^18.0.9",
-    "express": "^5.3.0",
-    "multer": "^2.5.0",
-    "yaml": "^2.9.1",
-    "zod": "^4.6.7"
+  "engines": {
+    "node": ">=18"
   },
-  "devDependencies": {
-    "nodemon": "^3.1.14"
-  }
+  "keywords": [
+    "oneapi",
+    "api-gateway",
+    "failover",
+    "multi-provider",
+    "gemini",
+    "groq",
+    "openrouter",
+    "weather",
+    "music",
+    "news",
+    "environment",
+    "sdk"
+  ],
+  "author": "OneAPI Team",
+  "homepage": "https://hackthon-seven-gules.vercel.app/",
+  "license": "MIT"
 }

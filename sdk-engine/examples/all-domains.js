@@ -11,7 +11,7 @@ async function runDemo() {
 
   const oneapi = new OneAPI({
     apiKey: process.env.ONEAPI_API_KEY || 'sk_live_demo_developer_key',
-    baseURL: process.env.ONEAPI_BASE_URL || 'http://localhost:5000/api/v1',
+    projectId: process.env.ONEAPI_PROJECT_ID || 'default',
   });
 
   // 1. Health Check

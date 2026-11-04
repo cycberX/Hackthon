@@ -44,7 +44,7 @@ export class OneAPI {
     // Base URL is resolved automatically by the SDK without manual configuration
     const envBase = typeof process !== 'undefined' ? process.env?.ONEAPI_BASE_URL : undefined;
     const winBase = typeof window !== 'undefined' ? (window.__ONEAPI_BASE_URL__ || '') : '';
-    this.baseURL = (envBase || winBase || 'http://localhost:5000/api/v1').replace(/\/+$/, '');
+    this.baseURL = (envBase || winBase || 'https://hackthon-seven-gules.vercel.app/api/v1').replace(/\/+$/, '');
 
     // Domain Resources
     this.ai = new AIResource(this);
