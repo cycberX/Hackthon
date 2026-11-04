@@ -43,7 +43,7 @@ OneAPI solves these challenges by providing:
   - Automatically retries the request using the configured fallback provider within the same execution cycle.
 - **Response Normalization (Adapter Layer):** Maps disparate third-party JSON schemas into a unified, predictable OneAPI output format.
 
-### 2.3 Unified Client SDK (`@oneapi/sdk`)
+### 2.3 Unified Client SDK (`github:cycberX/oneapi`)
 - Clean initialization using the project token.
 - Modular namespaces supporting multiple domains (e.g., `ai`, `weather`, `media`).
 - Standardized method signatures ensuring developers never need to import provider-specific client libraries.
@@ -56,7 +56,7 @@ OneAPI solves these challenges by providing:
 The SDK abstracts away underlying provider details. Below is the proposed JavaScript/TypeScript SDK design:
 
 ```javascript
-import { OneAPI } from '@oneapi/sdk';
+import { OneAPI } from 'github:cycberX/oneapi';
 
 // Initialize OneAPI SDK
 const oneapi = new OneAPI({

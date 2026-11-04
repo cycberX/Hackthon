@@ -88,9 +88,8 @@ const EndpointCard = ({
         </div>
 
         <span
-          className={`w-fit shrink-0 rounded-md border px-2.5 py-1 text-[10px] font-bold tracking-wider ${
-            methodStyles[methodColor] || methodStyles.violet
-          }`}
+          className={`w-fit shrink-0 rounded-md border px-2.5 py-1 text-[10px] font-bold tracking-wider ${methodStyles[methodColor] || methodStyles.violet
+            }`}
         >
           {method}
         </span>
@@ -351,22 +350,20 @@ export default function DocsPage() {
         <div className="mt-6 flex flex-wrap gap-2 border-b border-[var(--border)] pb-3">
           <button
             onClick={() => setActiveTab('sdk')}
-            className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
-              activeTab === 'sdk'
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${activeTab === 'sdk'
                 ? 'bg-[var(--primary)] text-white'
                 : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
-            }`}
+              }`}
           >
             JavaScript SDK
           </button>
 
           <button
             onClick={() => setActiveTab('rest')}
-            className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
-              activeTab === 'rest'
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${activeTab === 'rest'
                 ? 'bg-[var(--primary)] text-white'
                 : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
-            }`}
+              }`}
           >
             REST API
           </button>
@@ -385,10 +382,10 @@ export default function DocsPage() {
               </div>
 
               <CodeExample>{`// Install the official package
-npm install @oneapi/sdk
+npm install github:cycberX/oneapi
 
 // Initialize the OneAPI client
-import { OneAPI } from '@oneapi/sdk';
+import { OneAPI } from 'github:cycberX/oneapi';
 
 const oneapi = new OneAPI({
   apiKey: process.env.ONEAPI_API_KEY
@@ -556,7 +553,7 @@ x-api-key: sk_live_YOUR_API_KEY`}</CodeExample>
             endpoint="/api/v1/proxy/ai/chat"
             description="AI Chat Completion"
           >
-{`curl -X POST http://localhost:5000/api/v1/proxy/ai/chat \\
+            {`curl -X POST http://localhost:5000/api/v1/proxy/ai/chat \\
   -H "Authorization: Bearer sk_live_YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"prompt": "Summarize architecture benefits of OneAPI gateway in 2 bullets"}'`}
@@ -567,7 +564,7 @@ x-api-key: sk_live_YOUR_API_KEY`}</CodeExample>
             endpoint="/api/v1/proxy/ai/upload"
             description="AI File Upload"
           >
-{`curl -X POST http://localhost:5000/api/v1/proxy/ai/upload \\
+            {`curl -X POST http://localhost:5000/api/v1/proxy/ai/upload \\
   -H "Authorization: Bearer sk_live_YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"purpose": "assistants", "filename": "whitepaper.pdf", "file": "base64..."}'`}
@@ -579,7 +576,7 @@ x-api-key: sk_live_YOUR_API_KEY`}</CodeExample>
             endpoint="/api/v1/proxy/weather/current?city=Tokyo"
             description="Current Weather"
           >
-{`curl "http://localhost:5000/api/v1/proxy/weather/current?city=Tokyo" \\
+            {`curl "http://localhost:5000/api/v1/proxy/weather/current?city=Tokyo" \\
   -H "Authorization: Bearer sk_live_YOUR_API_KEY"`}
           </EndpointCard>
 
@@ -589,7 +586,7 @@ x-api-key: sk_live_YOUR_API_KEY`}</CodeExample>
             endpoint="/api/v1/proxy/music/search?q=Daft+Punk"
             description="Music Search"
           >
-{`curl "http://localhost:5000/api/v1/proxy/music/search?q=Daft+Punk" \\
+            {`curl "http://localhost:5000/api/v1/proxy/music/search?q=Daft+Punk" \\
   -H "Authorization: Bearer sk_live_YOUR_API_KEY"`}
           </EndpointCard>
 
@@ -599,7 +596,7 @@ x-api-key: sk_live_YOUR_API_KEY`}</CodeExample>
             endpoint="/api/v1/proxy/news/search?query=AI"
             description="News Search"
           >
-{`curl "http://localhost:5000/api/v1/proxy/news/search?query=AI" \\
+            {`curl "http://localhost:5000/api/v1/proxy/news/search?query=AI" \\
   -H "Authorization: Bearer sk_live_YOUR_API_KEY"`}
           </EndpointCard>
 
@@ -609,7 +606,7 @@ x-api-key: sk_live_YOUR_API_KEY`}</CodeExample>
             endpoint="/api/v1/proxy/environment/air-quality?city=London"
             description="Air Quality"
           >
-{`curl "http://localhost:5000/api/v1/proxy/environment/air-quality?city=London" \\
+            {`curl "http://localhost:5000/api/v1/proxy/environment/air-quality?city=London" \\
   -H "Authorization: Bearer sk_live_YOUR_API_KEY"`}
           </EndpointCard>
         </div>

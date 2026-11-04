@@ -254,7 +254,7 @@ export default function ApiKeysPage() {
 
               <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted)]">
                 Generate and manage API keys to authenticate application
-                servers and the official <code className="rounded-md bg-[var(--surface-secondary)] px-1.5 py-1 font-mono text-[var(--primary)]">@oneapi/sdk</code>
+                servers and the official <code className="rounded-md bg-[var(--surface-secondary)] px-1.5 py-1 font-mono text-[var(--primary)]">github:cycberX/oneapi</code>
                 {' '}against your proxy gateway.
               </p>
             </div>
@@ -429,7 +429,7 @@ export default function ApiKeysPage() {
                   const fullKey =
                     k.fullKey ||
                     (freshRawApiKey &&
-                    freshRawApiKey.startsWith(k.keyPrefix?.slice(0, 10))
+                      freshRawApiKey.startsWith(k.keyPrefix?.slice(0, 10))
                       ? freshRawApiKey
                       : null);
 
@@ -500,17 +500,15 @@ export default function ApiKeysPage() {
 
                       <td className="px-5 py-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                            k.isActive !== false
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${k.isActive !== false
                               ? 'bg-[var(--success)]/10 text-[var(--success)]'
                               : 'bg-[var(--danger)]/10 text-[var(--danger)]'
-                          }`}
+                            }`}
                         >
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            k.isActive !== false
+                          <span className={`h-1.5 w-1.5 rounded-full ${k.isActive !== false
                               ? 'bg-[var(--success)]'
                               : 'bg-[var(--danger)]'
-                          }`} />
+                            }`} />
                           {k.isActive !== false ? 'ACTIVE' : 'INACTIVE'}
                         </span>
                       </td>
@@ -615,18 +613,16 @@ export default function ApiKeysPage() {
 
           {validationResult && (
             <div
-              className={`mt-5 overflow-hidden rounded-xl border ${
-                isValidationSuccessful
+              className={`mt-5 overflow-hidden rounded-xl border ${isValidationSuccessful
                   ? 'border-[var(--success)]/25 bg-[var(--success)]/5'
                   : 'border-[var(--danger)]/25 bg-[var(--danger)]/5'
-              }`}
+                }`}
             >
               <div
-                className={`flex items-center gap-2 border-b px-4 py-3 ${
-                  isValidationSuccessful
+                className={`flex items-center gap-2 border-b px-4 py-3 ${isValidationSuccessful
                     ? 'border-[var(--success)]/20 text-[var(--success)]'
                     : 'border-[var(--danger)]/20 text-[var(--danger)]'
-                }`}
+                  }`}
               >
                 {isValidationSuccessful ? (
                   <CheckCircle2 size={17} />

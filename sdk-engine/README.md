@@ -1,4 +1,4 @@
-# @oneapi/sdk
+# github:cycberX/oneapi
 
 > Unified JavaScript & TypeScript SDK for **OneAPI Gateway** with Automated Multi-Provider Failover.
 
@@ -22,7 +22,7 @@
 ## 📦 Installation
 
 ```bash
-npm install @oneapi/sdk
+npm install github:cycberX/oneapi
 ```
 
 ---
@@ -30,7 +30,7 @@ npm install @oneapi/sdk
 ## 🚀 Quick Start
 
 ```javascript
-import { OneAPI } from '@oneapi/sdk';
+import { OneAPI } from 'github:cycberX/oneapi';
 
 // Initialize with your OneAPI key
 const oneapi = new OneAPI({
@@ -170,7 +170,7 @@ console.log('Registered providers:', providers.totalRegistered);
 The SDK throws descriptive `OneAPIError` instances with HTTP status code and provider metadata:
 
 ```javascript
-import { OneAPI, OneAPIError } from '@oneapi/sdk';
+import { OneAPI, OneAPIError } from 'github:cycberX/oneapi';
 
 try {
   const res = await oneapi.ai.chat({ prompt: 'Hello' });

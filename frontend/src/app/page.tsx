@@ -186,9 +186,8 @@ function Navbar({
           <button
             className="icon-button"
             onClick={toggleTheme}
-            aria-label={`Switch to ${
-              theme === "dark" ? "light" : "dark"
-            } theme`}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"
+              } theme`}
           >
             {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
           </button>
@@ -860,7 +859,7 @@ function Architecture() {
 }
 
 const codeLines = [
-  ["import { ", "OneAPI", " } from ", '"@oneapi/sdk"', ";"],
+  ["import { ", "OneAPI", " } from ", '"github:cycberX/oneapi"', ";"],
   [""],
   ["// Initialize client with your OneAPI key"],
   ["const ", "oneapi", " = new ", "OneAPI", "({"],
@@ -916,8 +915,8 @@ function CodeEditor() {
                       : part.includes('"')
                         ? "code-string text-[#e6a06b]"
                         : ["import ", "from ", "const ", "new ", "await "].some((k) =>
-                            part.includes(k),
-                          )
+                          part.includes(k),
+                        )
                           ? "code-keyword text-[#c98cff]"
                           : ""
                   }
@@ -968,7 +967,7 @@ function DeveloperExperience() {
             ))}
           </ul>
           <p className="code-disclaimer reveal">
-            Install with <code className="text-[var(--primary)] font-semibold font-mono">npm install @oneapi/sdk</code>. Automatic failover intelligently cascades across Gemini, Groq, and OpenRouter without rewriting client code.
+            Install with <code className="text-[var(--primary)] font-semibold font-mono">npm install github:cycberX/oneapi</code>. Automatic failover intelligently cascades across Gemini, Groq, and OpenRouter without rewriting client code.
           </p>
         </div>
         <CodeEditor />
@@ -1145,11 +1144,11 @@ function Footer() {
 export default function App() {
   const [theme, setTheme] = useState<Theme>(
     () => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('oneapi-theme') as Theme) || 'dark';
-    }
-    return 'dark';
-  },
+      if (typeof window !== 'undefined') {
+        return (localStorage.getItem('oneapi-theme') as Theme) || 'dark';
+      }
+      return 'dark';
+    },
   )
 
   useEffect(() => {
