@@ -42,12 +42,16 @@ class ProviderRegistry {
     category: ProviderCategory;
     displayName: string;
     isKeyRequired: boolean;
+    supportedModels?: string[];
+    defaultModel?: string;
   }> {
     const all = Array.from(this.adapters.values()).map((a) => ({
       id: a.id,
       category: a.category,
       displayName: a.displayName,
       isKeyRequired: a.isKeyRequired,
+      supportedModels: a.supportedModels || [],
+      defaultModel: a.defaultModel || (a.supportedModels?.[0] ?? undefined),
     }));
 
     if (category) {

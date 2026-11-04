@@ -3,7 +3,16 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User, Phone, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import {
+  Mail,
+  Lock,
+  User,
+  Phone,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ShieldCheck,
+} from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 
 export default function SignupPage() {
@@ -47,7 +56,6 @@ export default function SignupPage() {
         return;
       }
 
-      // Redirect to OTP verification with pre-filled email
       router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
@@ -55,122 +63,182 @@ export default function SignupPage() {
     }
   };
 
+  const inputClass =
+    'w-full h-11 pl-10 pr-10 rounded-xl text-sm outline-none transition-all bg-[var(--surface-input)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:ring-2 focus:ring-[var(--primary)]/20';
+
+  const labelClass =
+    'block text-xs font-semibold text-[var(--foreground)] mb-1.5';
+
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-white tracking-tight">Create Developer Account</h2>
-        <p className="text-xs text-slate-400 mt-1">Get started with unified API gateway and automatic failover.</p>
+    <div className="auth-glass-card w-full text-[var(--foreground)]">
+      {/* Heading */}
+      <div className="mb-7">
+        <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-[var(--primary)] mb-3">
+          Start for free
+        </p>
+
+        <h1 className="text-3xl sm:text-[34px] font-bold tracking-tight text-[var(--foreground)]">
+          Create your account<span className="text-[var(--primary)]">.</span>
+        </h1>
+
+        <p className="text-sm text-[var(--muted)] mt-2">
+          Already have an account?{' '}
+          <Link
+            href="/login"
+            className="text-[var(--primary)] font-semibold hover:underline"
+          >
+            Sign in
+          </Link>
+        </p>
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
+        <div
+          role="alert"
+          className="mb-5 p-3 rounded-xl bg-[var(--danger)]/10 text-[var(--danger)] text-sm font-medium"
+        >
           {error}
         </div>
       )}
 
+      {/* Signup form */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1.5">Full Name</label>
-          <div className="relative">
-            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Alex Rivera"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-slate-700/80 rounded-xl text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors"
-            />
+        {/* Name and phone */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Full name</label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+              <input
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoComplete="name"
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Phone number</label>
+            <div className="relative">
+              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+              <input
+                type="tel"
+                placeholder="Phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                autoComplete="tel"
+                className={inputClass}
+              />
+            </div>
           </div>
         </div>
 
+        {/* Email */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1.5">Phone Number</label>
+          <label className={labelClass}>Email address</label>
           <div className="relative">
-            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-            <input
-              type="tel"
-              placeholder="+14155552671"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-slate-700/80 rounded-xl text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Address</label>
-          <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
             <input
               type="email"
-              placeholder="developer@example.com"
+              placeholder="name@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-slate-700/80 rounded-xl text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors"
+              autoComplete="email"
+              className={inputClass}
             />
           </div>
         </div>
 
+        {/* Password */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1.5">Password</label>
+          <label className={labelClass}>Password</label>
           <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+
             <input
               type={showPassword ? 'text' : 'password'}
-              placeholder="Min. 8 characters"
+              placeholder="Minimum 8 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
-              className="w-full pl-10 pr-10 py-2.5 bg-slate-900/60 border border-slate-700/80 rounded-xl text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors"
+              autoComplete="new-password"
+              className={inputClass}
             />
+
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 focus:outline-none cursor-pointer"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)]"
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
             </button>
           </div>
+
+          <p className="text-[11px] text-[var(--muted)] mt-1.5">
+            Use at least 8 characters.
+          </p>
         </div>
 
-        <div className="pt-1 flex items-center gap-2">
+        {/* Terms */}
+        <div className="flex items-start gap-2.5 pt-1">
           <input
             id="terms"
             type="checkbox"
             checked={termsAccepted}
             onChange={(e) => setTermsAccepted(e.target.checked)}
-            className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500 focus:ring-offset-0 cursor-pointer"
+            className="mt-0.5 w-4 h-4 accent-[var(--primary)] cursor-pointer shrink-0"
           />
-          <label htmlFor="terms" className="text-xs text-slate-400 select-none cursor-pointer">
-            I agree to the <span className="text-sky-400 hover:underline">Terms of Service</span> and <span className="text-sky-400 hover:underline">Privacy Policy</span>
+
+          <label
+            htmlFor="terms"
+            className="text-xs text-[var(--muted)] leading-relaxed cursor-pointer"
+          >
+            I agree to the{' '}
+            <Link href="/terms" className="text-[var(--primary)] font-medium hover:underline">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy" className="text-[var(--primary)] font-medium hover:underline">
+              Privacy Policy
+            </Link>
+            .
           </label>
         </div>
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-sm h-11 rounded-xl shadow-lg shadow-sky-500/25 mt-2 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+          className="w-full h-11 mt-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[var(--primary)]/20 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? (
-            <span>Creating account...</span>
+            'Creating account...'
           ) : (
             <>
-              <span>Create Account</span>
+              Create account
               <ArrowRight className="w-4 h-4" />
             </>
           )}
         </button>
       </form>
 
-      <div className="mt-6 text-center text-xs text-slate-400">
-        Already have an account?{' '}
-        <Link href="/login" className="text-sky-400 font-semibold hover:underline">
-          Sign In
-        </Link>
+      {/* Security */}
+      <div className="mt-6 pt-5 flex items-center justify-center gap-2 text-xs text-[var(--muted)]">
+        <ShieldCheck className="w-4 h-4 text-[var(--success)]" />
+        Secure account registration
       </div>
     </div>
   );

@@ -22,7 +22,7 @@ export class OpenMeteoWeatherAdapter implements IProviderAdapter<UnifiedWeatherR
 
   public async execute(params: UnifiedWeatherRequest, config: ProviderConfig): Promise<UnifiedWeatherResponse> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), config.timeoutMs || 5000);
+    const timeout = setTimeout(() => controller.abort(), config.timeoutMs || 8000);
 
     try {
       let lat = params.latitude;
@@ -34,7 +34,7 @@ export class OpenMeteoWeatherAdapter implements IProviderAdapter<UnifiedWeatherR
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(params.city)}&count=1&language=en&format=json`;
         const geoRes = await fetch(geoUrl, { signal: controller.signal });
         if (geoRes.ok) {
-          const geoData = await geoRes.json() as any;
+          const geoData = (await geoRes.json()) as any;
           if (geoData.results && geoData.results.length > 0) {
             lat = geoData.results[0].latitude;
             lon = geoData.results[0].longitude;
@@ -43,32 +43,44 @@ export class OpenMeteoWeatherAdapter implements IProviderAdapter<UnifiedWeatherR
         }
       }
 
-      // Default to London if not specified
+      // Default to San Francisco if neither city nor lat/lon provided
       if (lat === undefined || lon === undefined) {
-        lat = 51.5074;
-        lon = -0.1278;
-        locationName = 'London, UK';
+        lat = 37.7749;
+        lon = -122.4194;
+        locationName = 'San Francisco, United States';
       }
 
-      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m`;
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,surface_pressure`;
       const response = await fetch(weatherUrl, { signal: controller.signal });
 
       if (!response.ok) {
-        const err = new Error(`Open-Meteo API error: ${response.status}`);
+        const err = new Error(`Open-Meteo upstream error: ${response.status}`);
         (err as any).statusCode = response.status;
         throw err;
       }
 
-      const data = await response.json() as any;
-      const current = data.current || {};
+      const data = (await response.json()) as any;
+      const current = data.current;
+      if (!current) {
+        const err = new Error('Open-Meteo returned invalid weather payload.');
+        (err as any).statusCode = 502;
+        throw err;
+      }
 
       return {
         location: locationName,
+        coordinates: {
+          latitude: lat,
+          longitude: lon,
+          lat,
+          lon,
+        },
         current: {
-          temperature: current.temperature_2m ?? 20,
-          humidity: current.relative_humidity_2m ?? 50,
+          temperature: current.temperature_2m !== undefined ? Math.round(current.temperature_2m * 10) / 10 : 0,
+          humidity: current.relative_humidity_2m !== undefined ? Math.round(current.relative_humidity_2m) : 0,
           condition: mapWmoCode(current.weather_code ?? 0),
-          windSpeed: current.wind_speed_10m ?? 10,
+          windSpeed: current.wind_speed_10m !== undefined ? Math.round(current.wind_speed_10m * 10) / 10 : 0,
+          pressure: current.surface_pressure !== undefined ? Math.round(current.surface_pressure) : 1013,
         },
         provider: this.id,
         timestamp: current.time || new Date().toISOString(),

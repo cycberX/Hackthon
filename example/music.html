@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OneAPI Music — Multi-Provider Audio Stream &amp; Catalog</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .music-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .music-search-bar {
+      display: flex;
+      gap: 10px;
+      background: var(--bg-surface);
+      padding: 8px 12px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .music-search-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 15px;
+      padding: 8px;
+    }
+    .music-search-btn {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .quick-artists {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .artist-chip {
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .artist-chip:hover, .artist-chip.active {
+      background: #a855f7;
+      color: #fff;
+    }
+    .tracks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 18px;
+    }
+    .track-card {
+      background: #18181b;
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .track-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px rgba(168,85,247,0.25);
+    }
+    .track-artwork-box {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 12px;
+      background: #27272a;
+      overflow: hidden;
+      position: relative;
+    }
+    .track-artwork-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .play-btn-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+      cursor: pointer;
+    }
+    .track-card:hover .play-btn-overlay {
+      opacity: 1;
+    }
+    .play-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #a855f7;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    }
+    .track-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .track-artist {
+      font-size: 12px;
+      color: #a1a1aa;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .track-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: #71717a;
+    }
+    .audio-player-bar {
+      position: sticky;
+      bottom: 20px;
+      background: #18181b;
+      border-radius: 20px;
+      padding: 14px 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 50;
+    }
+    .audio-player-bar.active {
+      display: flex;
+    }
+    .player-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+      max-width: 250px;
+    }
+    .player-thumb {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      background: #3f3f46;
+      object-fit: cover;
+    }
+    .player-info {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .player-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .player-artist {
+      font-size: 11px;
+      color: #a1a1aa;
+    }
+    audio {
+      height: 36px;
+      flex: 1;
+      max-width: 450px;
+    }
+  </style>
+</head>
+<body>
+  <div class="chatgpt-container">
+    <!-- SIDEBAR -->
+    <aside class="chatgpt-sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-header">
+          <div class="brand">
+            <div class="brand-icon" style="background: linear-gradient(135deg, #a855f7, #ec4899);">🎵</div>
+            <span class="brand-name">OneAPI</span>
+          </div>
+          <button id="sidebarCloseBtn" class="icon-btn sm">✕</button>
+        </div>
+
+        <div class="apps-nav">
+          <div class="nav-heading">ONEAPI DEMOS</div>
+          <a href="index.html" class="nav-item">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">AI Chatbot</span>
+          </a>
+          <a href="weather.html" class="nav-item">
+            <span class="nav-icon">⛅</span>
+            <span class="nav-label">Weather Station</span>
+          </a>
+          <a href="music.html" class="nav-item active">
+            <span class="nav-icon">🎵</span>
+            <span class="nav-label">Music &amp; Audio</span>
+            <span class="pill-live">Live</span>
+          </a>
+          <a href="news.html" class="nav-item">
+            <span class="nav-icon">📰</span>
+            <span class="nav-label">News Radar</span>
+          </a>
+          <a href="environment.html" class="nav-item">
+            <span class="nav-icon">🌱</span>
+            <span class="nav-label">Air Quality Monitor</span>
+          </a>
+          <a href="http://localhost:3000/dashboard" target="_blank" class="nav-item external">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Developer Dashboard</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="account-pill">
+          <div class="user-avatar" style="color: #c084fc;">🔑</div>
+          <div class="account-info">
+            <span class="account-title">Developer Key</span>
+            <span class="account-status">✓ Authenticated</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN MUSIC VIEW -->
+    <main class="chatgpt-main" style="overflow-y: auto;">
+      <header class="chatgpt-nav">
+        <div class="nav-left">
+          <button id="sidebarToggleBtn" class="icon-btn">☰</button>
+          <div style="font-weight: 700; font-size: 15px; color: #fff;">
+            🎵 OneAPI Music Gateway
+          </div>
+        </div>
+        <div class="nav-right">
+          <div class="gateway-pill">
+            <span class="status-circle online"></span>
+            <span>Gateway /api/v1/proxy/music</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="music-container">
+        <!-- Search bar -->
+        <div class="music-search-bar">
+          <input type="text" id="musicInput" placeholder="Search songs, artists, or soundtracks (e.g. Daft Punk, Queen, The Weeknd)..." value="Daft Punk" />
+          <button id="searchMusicBtn" class="music-search-btn">
+            <span>Search</span>
+            <span>→</span>
+          </button>
+        </div>
+
+        <!-- Provider Direct Targeting Toggle -->
+        <div class="provider-toggle-bar">
+          <span style="font-size: 12px; color: #71717a; margin-right: 4px;">Provider Mode:</span>
+          <button class="provider-btn active" data-provider="">⚡ Auto (Cascade)</button>
+          <button class="provider-btn" data-provider="deezer">Deezer (Public)</button>
+          <button class="provider-btn" data-provider="itunes">Apple iTunes (Fallback)</button>
+        </div>
+
+        <!-- Quick Chips -->
+        <div class="quick-artists">
+          <span class="artist-chip active" data-q="Daft Punk">Daft Punk</span>
+          <span class="artist-chip" data-q="The Weeknd">The Weeknd</span>
+          <span class="artist-chip" data-q="Queen">Queen</span>
+          <span class="artist-chip" data-q="Interstellar">Hans Zimmer</span>
+          <span class="artist-chip" data-q="Coldplay">Coldplay</span>
+          <span class="artist-chip" data-q="Adele">Adele</span>
+        </div>
+
+        <!-- Failover Telemetry Box -->
+        <div class="failover-status-box" id="failoverMusicBox">
+          <div class="failover-title" style="color: #c084fc;">
+            <span>⚡ OneAPI Music Gateway Failover Telemetry</span>
+          </div>
+          <div class="failover-details">
+            <div>Primary: <strong>Deezer Music API</strong></div>
+            <div>Fallback: <strong>Apple iTunes Search API</strong></div>
+            <div>Active Provider: <strong id="musicProviderVal" style="color: #c084fc;">itunes</strong></div>
+            <div>Latency: <strong id="musicLatencyVal" style="color: #34d399;">180ms</strong></div>
+            <div>Results: <strong id="musicCountVal">0 tracks found</strong></div>
+          </div>
+        </div>
+
+        <!-- Track Cards Grid -->
+        <div class="tracks-grid" id="tracksGrid">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Sticky Floating Audio Player -->
+        <div class="audio-player-bar" id="audioPlayerBar">
+          <div class="player-left">
+            <img id="playerThumb" class="player-thumb" src="" alt="Album Artwork" />
+            <div class="player-info">
+              <span id="playerTrackTitle" class="player-title">Track Title</span>
+              <span id="playerTrackArtist" class="player-artist">Artist</span>
+            </div>
+          </div>
+          <audio id="audioElement" controls autoplay></audio>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="oneapi-sdk.js"></script>
+  <script>
+    const apiKey = localStorage.getItem('oneapi_chat_api_key') || localStorage.getItem('oneapi_latest_raw_developer_api_key') || '';
+    const projectId = localStorage.getItem('oneapi_chat_project_id') || localStorage.getItem('oneapi_project_id') || '';
+
+    // Initialize OneAPI SDK (Gateway endpoint handled automatically)
+    const oneapi = new OneAPI({
+      apiKey,
+      projectId,
+    });
+
+    const musicInput = document.getElementById('musicInput');
+    const searchMusicBtn = document.getElementById('searchMusicBtn');
+    const tracksGrid = document.getElementById('tracksGrid');
+    const musicProviderVal = document.getElementById('musicProviderVal');
+    const musicLatencyVal = document.getElementById('musicLatencyVal');
+    const musicCountVal = document.getElementById('musicCountVal');
+    const audioPlayerBar = document.getElementById('audioPlayerBar');
+    const audioElement = document.getElementById('audioElement');
+    const playerThumb = document.getElementById('playerThumb');
+    const playerTrackTitle = document.getElementById('playerTrackTitle');
+    const playerTrackArtist = document.getElementById('playerTrackArtist');
+
+    let currentSelectedProvider = '';
+
+    async function searchMusic(query) {
+      searchMusicBtn.textContent = 'Searching...';
+      tracksGrid.innerHTML = '<div style="color: #a1a1aa; padding: 20px;">Searching music catalog across Deezer & Apple iTunes...</div>';
+      const startTime = performance.now();
+
+      try {
+        const res = await oneapi.music.search({
+          query,
+          limit: 12,
+          provider: currentSelectedProvider || undefined,
+        });
+
+        const latency = Math.round(performance.now() - startTime);
+        const tracks = res.tracks || [];
+
+        // Telemetry
+        const finalProv = res._oneapi?.finalProvider || res.provider || 'itunes';
+        musicProviderVal.textContent = finalProv;
+        musicLatencyVal.textContent = latency + 'ms';
+        musicCountVal.textContent = `${tracks.length} tracks found`;
+
+        if (tracks.length === 0) {
+          tracksGrid.innerHTML = '<div style="color: #a1a1aa; padding: 20px;">No tracks found for this query.</div>';
+          return;
+        }
+
+        tracksGrid.innerHTML = '';
+        tracks.forEach(track => {
+          const card = document.createElement('div');
+          card.className = 'track-card';
+          const cover = track.albumCover || track.coverUrl || 'https://via.placeholder.com/300x300.png?text=Music';
+          card.innerHTML = `
+            <div class="track-artwork-box">
+              <img src="${cover}" alt="${track.title}" onerror="this.src='https://via.placeholder.com/300x300.png?text=Music'" />
+              ${track.previewUrl ? `
+                <div class="play-btn-overlay" data-preview="${track.previewUrl}" data-title="${encodeURIComponent(track.title)}" data-artist="${encodeURIComponent(track.artist)}" data-cover="${cover}">
+                  <div class="play-circle">▶</div>
+                </div>
+              ` : ''}
+            </div>
+            <div>
+              <div class="track-title" title="${track.title}">${track.title}</div>
+              <div class="track-artist">${track.artist}</div>
+            </div>
+            <div class="track-footer">
+              <span>${track.durationFormatted || ''}</span>
+              <span>${track.provider || finalProv}</span>
+            </div>
+          `;
+
+          const playBtn = card.querySelector('.play-btn-overlay');
+          if (playBtn) {
+            playBtn.addEventListener('click', () => {
+              const preview = playBtn.getAttribute('data-preview');
+              const title = decodeURIComponent(playBtn.getAttribute('data-title'));
+              const artist = decodeURIComponent(playBtn.getAttribute('data-artist'));
+              const c = playBtn.getAttribute('data-cover');
+
+              playerThumb.src = c;
+              playerTrackTitle.textContent = title;
+              playerTrackArtist.textContent = artist;
+              audioElement.src = preview;
+              audioPlayerBar.classList.add('active');
+              audioElement.play();
+            });
+          }
+
+          tracksGrid.appendChild(card);
+        });
+      } catch (err) {
+        tracksGrid.innerHTML = `<div style="color: #f43f5e; padding: 20px;">Error: ${err.message || 'Failed to search'}</div>`;
+      } finally {
+        searchMusicBtn.textContent = 'Search →';
+      }
+    }
+
+    searchMusicBtn.addEventListener('click', () => {
+      const q = musicInput.value.trim();
+      if (q) searchMusic(q);
+    });
+
+    musicInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const q = musicInput.value.trim();
+        if (q) searchMusic(q);
+      }
+    });
+
+    // Artist quick chips
+    document.querySelectorAll('.artist-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.artist-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const q = chip.getAttribute('data-q');
+        musicInput.value = q;
+        searchMusic(q);
+      });
+    });
+
+    // Provider buttons
+    document.querySelectorAll('.provider-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSelectedProvider = btn.getAttribute('data-provider');
+        const q = musicInput.value.trim() || 'Daft Punk';
+        searchMusic(q);
+      });
+    });
+
+    // Sidebar toggle
+    document.getElementById('sidebarToggleBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    });
+    document.getElementById('sidebarCloseBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.add('collapsed');
+    });
+
+    // Initial search
+    searchMusic('Daft Punk');
+  </script>
+</body>
+</html>

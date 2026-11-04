@@ -2,8 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import { createApp } from '../src/app.js';
+import { initProviders } from '../src/providers/index.js';
 
 describe('4. Express API, CORS & API Key Validation Integration Tests', () => {
+  initProviders();
   const app = createApp();
   let server: http.Server;
   let baseUrl: string;
@@ -24,7 +26,7 @@ describe('4. Express API, CORS & API Key Validation Integration Tests', () => {
     assert.equal(res.status, 200);
     const data = await res.json() as any;
     assert.equal(data.status, 'operational');
-    assert.equal(data.name, 'HackVsak Backend API');
+    assert.equal(data.name, 'OneAPI Gateway Backend API');
   });
 
   it('CORS should permit requests from any IP/Origin', async () => {
@@ -168,15 +170,33 @@ describe('4. Express API, CORS & API Key Validation Integration Tests', () => {
     assert.equal(data.data.categories.length, 5);
   });
 
-  it('POST /api/v1/proxy/ai/chat should reject requests without project token (401)', async () => {
+  it('POST /api/v1/proxy/ai/chat should reject requests without OneAPI key or auth token (401)', async () => {
     const res = await fetch(`${baseUrl}/api/v1/proxy/ai/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: [{ role: 'user', content: 'Hello' }] }),
     });
     assert.equal(res.status, 401);
     const data = await res.json() as any;
-    assert.equal(data.error.code, 'MISSING_PROJECT_TOKEN');
+    assert.equal(data.error.code, 'UNAUTHORIZED');
+  });
+
+  it('GET /api/v1/providers should list all registered providers directly', async () => {
+    const res = await fetch(`${baseUrl}/api/v1/providers`);
+    assert.equal(res.status, 200);
+    const data = await res.json() as any;
+    assert.equal(data.success, true);
+    assert.ok(data.data.totalRegistered >= 11);
+  });
+
+  it('Requests without Content-Type header should parse JSON body successfully (zero required Content-Type)', async () => {
+    const res = await fetch(`${baseUrl}/api/v1/auth/signup`, {
+      method: 'POST',
+      body: JSON.stringify({ email: 'test@example.com' }), // Note: No Content-Type header sent!
+    });
+    // Should be parsed and return 400 validation error (e.g. missing password), NOT 500 or skipping body
+    assert.equal(res.status, 400);
+    const data = await res.json() as any;
+    assert.equal(data.error.code, 'VALIDATION_ERROR');
   });
 
   it('GET /health returns health info', async () => {

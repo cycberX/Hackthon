@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OneAPI Environment — Multi-Provider Air Quality Monitor</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .env-container {
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .env-search-bar {
+      display: flex;
+      gap: 10px;
+      background: var(--bg-surface);
+      padding: 8px 12px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .env-search-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 15px;
+      padding: 8px;
+    }
+    .env-search-btn {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .quick-cities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .city-chip {
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .city-chip:hover, .city-chip.active {
+      background: #10b981;
+      color: #fff;
+    }
+    .aqi-main-card {
+      background: linear-gradient(145deg, #064e3b, #022c22);
+      border-radius: 24px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.4);
+      position: relative;
+      overflow: hidden;
+    }
+    .aqi-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .aqi-city-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .aqi-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      margin-top: 8px;
+    }
+    .aqi-gauge-display {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .aqi-number {
+      font-size: 72px;
+      font-weight: 900;
+      color: #34d399;
+      line-height: 1;
+    }
+    .aqi-unit {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+    .aqi-advisory {
+      font-size: 14px;
+      color: #d1fae5;
+      line-height: 1.5;
+      max-width: 550px;
+    }
+    .pollutants-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 640px) {
+      .pollutants-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .pollutant-box {
+      background: rgba(2, 44, 34, 0.7);
+      padding: 16px;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .pollutant-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #6ee7b7;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: var(--font-mono);
+    }
+    .pollutant-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .pollutant-unit {
+      font-size: 10px;
+      color: #a7f3d0;
+      font-family: var(--font-mono);
+    }
+    .failover-status-box {
+      background: rgba(16, 185, 129, 0.08);
+      border-radius: 16px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .failover-title {
+      font-weight: 700;
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .failover-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="chatgpt-container">
+    <!-- SIDEBAR -->
+    <aside class="chatgpt-sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-header">
+          <div class="brand">
+            <div class="brand-icon" style="background: linear-gradient(135deg, #10b981, #059669);">🌱</div>
+            <span class="brand-name">OneAPI</span>
+          </div>
+          <button id="sidebarCloseBtn" class="icon-btn sm">✕</button>
+        </div>
+
+        <div class="apps-nav">
+          <div class="nav-heading">ONEAPI DEMOS</div>
+          <a href="index.html" class="nav-item">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">AI Chatbot</span>
+          </a>
+          <a href="weather.html" class="nav-item">
+            <span class="nav-icon">⛅</span>
+            <span class="nav-label">Weather Station</span>
+          </a>
+          <a href="music.html" class="nav-item">
+            <span class="nav-icon">🎵</span>
+            <span class="nav-label">Music &amp; Audio</span>
+          </a>
+          <a href="news.html" class="nav-item">
+            <span class="nav-icon">📰</span>
+            <span class="nav-label">News Radar</span>
+          </a>
+          <a href="environment.html" class="nav-item active">
+            <span class="nav-icon">🌱</span>
+            <span class="nav-label">Air Quality Monitor</span>
+            <span class="pill-live">Live</span>
+          </a>
+          <a href="http://localhost:3000/dashboard" target="_blank" class="nav-item external">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Developer Dashboard</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="account-pill">
+          <div class="user-avatar" style="color: #34d399;">🔑</div>
+          <div class="account-info">
+            <span class="account-title">Developer Key</span>
+            <span class="account-status">✓ Authenticated</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN ENVIRONMENT VIEW -->
+    <main class="chatgpt-main" style="overflow-y: auto;">
+      <header class="chatgpt-nav">
+        <div class="nav-left">
+          <button id="sidebarToggleBtn" class="icon-btn">☰</button>
+          <div style="font-weight: 700; font-size: 15px; color: #fff;">
+            🌱 OneAPI Air Quality &amp; Environment Gateway
+          </div>
+        </div>
+        <div class="nav-right">
+          <div class="gateway-pill">
+            <span class="status-circle online"></span>
+            <span>Gateway /api/v1/proxy/environment</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="env-container">
+        <!-- Search -->
+        <div class="env-search-bar">
+          <input type="text" id="cityInput" placeholder="Enter city or region (e.g. London, Los Angeles, Tokyo, Paris, Delhi)..." value="London" />
+          <button id="searchEnvBtn" class="env-search-btn">
+            <span>Analyze</span>
+            <span>→</span>
+          </button>
+        </div>
+
+        <!-- Provider Direct Targeting Toggle -->
+        <div class="provider-toggle-bar">
+          <span style="font-size: 12px; color: #71717a; margin-right: 4px;">Provider Mode:</span>
+          <button class="provider-btn active" data-provider="">⚡ Auto (Cascade)</button>
+          <button class="provider-btn" data-provider="openaq">OpenAQ Sensor Network (v3)</button>
+          <button class="provider-btn" data-provider="openmeteo_air">Open-Meteo Air Quality</button>
+        </div>
+
+        <div class="quick-cities">
+          <span class="city-chip active" data-city="London">London</span>
+          <span class="city-chip" data-city="Los Angeles">Los Angeles</span>
+          <span class="city-chip" data-city="Paris">Paris</span>
+          <span class="city-chip" data-city="Tokyo">Tokyo</span>
+          <span class="city-chip" data-city="Delhi">Delhi</span>
+          <span class="city-chip" data-city="Beijing">Beijing</span>
+          <span class="city-chip" data-city="Berlin">Berlin</span>
+        </div>
+
+        <!-- AQI Card -->
+        <div class="aqi-main-card" id="aqiCard">
+          <div class="aqi-card-top">
+            <div>
+              <div class="aqi-city-title" id="locationTitle">London, United Kingdom</div>
+              <div class="aqi-status-badge" id="aqiBadge">Good Air Quality</div>
+            </div>
+            <div style="font-size: 56px;">🍃</div>
+          </div>
+
+          <div class="aqi-gauge-display">
+            <div class="aqi-number" id="aqiNumber">38</div>
+            <div class="aqi-unit">US AQI</div>
+          </div>
+
+          <p class="aqi-advisory" id="aqiAdvisory">
+            Air quality is considered satisfactory, and air pollution poses little or no risk to health.
+          </p>
+
+          <!-- Pollutants Grid -->
+          <div class="pollutants-grid">
+            <div class="pollutant-box">
+              <span class="pollutant-label">PM2.5 (Fine Dust)</span>
+              <span class="pollutant-val" id="pm25Val">8.4</span>
+              <span class="pollutant-unit">µg/m³</span>
+            </div>
+            <div class="pollutant-box">
+              <span class="pollutant-label">PM10 (Particles)</span>
+              <span class="pollutant-val" id="pm10Val">14.2</span>
+              <span class="pollutant-unit">µg/m³</span>
+            </div>
+            <div class="pollutant-box">
+              <span class="pollutant-label">Ozone (O₃)</span>
+              <span class="pollutant-val" id="o3Val">42.0</span>
+              <span class="pollutant-unit">µg/m³</span>
+            </div>
+            <div class="pollutant-box">
+              <span class="pollutant-label">Nitrogen Dioxide (NO₂)</span>
+              <span class="pollutant-val" id="no2Val">18.5</span>
+              <span class="pollutant-unit">µg/m³</span>
+            </div>
+          </div>
+
+          <!-- Failover Telemetry Box -->
+          <div class="failover-status-box" id="failoverEnvBox">
+            <div class="failover-title">
+              <span>⚡ OneAPI Environment Gateway Failover Telemetry</span>
+            </div>
+            <div class="failover-details">
+              <div>Primary: <strong>OpenAQ Sensor Network (v3)</strong></div>
+              <div>Fallback: <strong>Open-Meteo Atmospheric Air Quality</strong></div>
+              <div>Active Provider: <strong id="envProviderVal" style="color: #34d399;">openmeteo_air</strong></div>
+              <div>Latency: <strong id="envLatencyVal" style="color: #34d399;">140ms</strong></div>
+              <div>Status: <strong id="envStatusVal">Direct Primary Call</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="oneapi-sdk.js"></script>
+  <script>
+    const apiKey = localStorage.getItem('oneapi_chat_api_key') || localStorage.getItem('oneapi_latest_raw_developer_api_key') || '';
+    const projectId = localStorage.getItem('oneapi_chat_project_id') || localStorage.getItem('oneapi_project_id') || '';
+
+    // Initialize OneAPI SDK (Gateway endpoint handled automatically)
+    const oneapi = new OneAPI({
+      apiKey,
+      projectId,
+    });
+
+    const cityInput = document.getElementById('cityInput');
+    const searchEnvBtn = document.getElementById('searchEnvBtn');
+    const locationTitle = document.getElementById('locationTitle');
+    const aqiBadge = document.getElementById('aqiBadge');
+    const aqiNumber = document.getElementById('aqiNumber');
+    const aqiAdvisory = document.getElementById('aqiAdvisory');
+    const pm25Val = document.getElementById('pm25Val');
+    const pm10Val = document.getElementById('pm10Val');
+    const o3Val = document.getElementById('o3Val');
+    const no2Val = document.getElementById('no2Val');
+    const envProviderVal = document.getElementById('envProviderVal');
+    const envLatencyVal = document.getElementById('envLatencyVal');
+    const envStatusVal = document.getElementById('envStatusVal');
+
+    let currentSelectedProvider = '';
+
+    async function fetchAirQuality(city) {
+      searchEnvBtn.textContent = 'Analyzing...';
+      const startTime = performance.now();
+
+      try {
+        const res = await oneapi.environment.airQuality({
+          city,
+          provider: currentSelectedProvider || undefined,
+        });
+
+        const latency = Math.round(performance.now() - startTime);
+        const air = res.airQuality || {};
+
+        locationTitle.textContent = res.location || city;
+        const aqi = air.aqi !== undefined ? air.aqi : 42;
+        aqiNumber.textContent = aqi;
+
+        // AQI Classification
+        if (aqi <= 50) {
+          aqiBadge.textContent = 'Good Air Quality';
+          aqiBadge.style.color = '#34d399';
+          aqiNumber.style.color = '#34d399';
+          aqiAdvisory.textContent = 'Air quality is considered satisfactory, and air pollution poses little or no risk to health.';
+        } else if (aqi <= 100) {
+          aqiBadge.textContent = 'Moderate Quality';
+          aqiBadge.style.color = '#fbbf24';
+          aqiNumber.style.color = '#fbbf24';
+          aqiAdvisory.textContent = 'Air quality is acceptable; however, sensitive individuals may experience minor respiratory symptoms.';
+        } else if (aqi <= 150) {
+          aqiBadge.textContent = 'Unhealthy for Sensitive Groups';
+          aqiBadge.style.color = '#fb923c';
+          aqiNumber.style.color = '#fb923c';
+          aqiAdvisory.textContent = 'Members of sensitive groups may experience health effects. The general public is less likely to be affected.';
+        } else {
+          aqiBadge.textContent = 'Unhealthy Quality';
+          aqiBadge.style.color = '#f87171';
+          aqiNumber.style.color = '#f87171';
+          aqiAdvisory.textContent = 'Everyone may begin to experience health effects; members of sensitive groups may experience more serious health effects.';
+        }
+
+        pm25Val.textContent = air.pm25 !== undefined ? air.pm25 : '—';
+        pm10Val.textContent = air.pm10 !== undefined ? air.pm10 : '—';
+        o3Val.textContent = air.o3 !== undefined ? air.o3 : '—';
+        no2Val.textContent = air.no2 !== undefined ? air.no2 : '—';
+
+        // Telemetry
+        const finalProv = res._oneapi?.finalProvider || res.provider || 'openmeteo_air';
+        const fallback = Boolean(res._oneapi?.fallbackTriggered);
+        envProviderVal.textContent = finalProv;
+        envLatencyVal.textContent = latency + 'ms';
+        envStatusVal.textContent = fallback ? '🔄 Fallback Provider Active' : '⚡ Direct Primary Call';
+        envStatusVal.style.color = fallback ? '#c084fc' : '#34d399';
+      } catch (err) {
+        locationTitle.textContent = 'Error: ' + (err.message || 'Data unavailable');
+        aqiBadge.textContent = 'Service Error';
+        aqiBadge.style.color = '#f87171';
+      } finally {
+        searchEnvBtn.textContent = 'Analyze →';
+      }
+    }
+
+    searchEnvBtn.addEventListener('click', () => {
+      const q = cityInput.value.trim();
+      if (q) fetchAirQuality(q);
+    });
+
+    cityInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const q = cityInput.value.trim();
+        if (q) fetchAirQuality(q);
+      }
+    });
+
+    // City quick chips
+    document.querySelectorAll('.city-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.city-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const city = chip.getAttribute('data-city');
+        cityInput.value = city;
+        fetchAirQuality(city);
+      });
+    });
+
+    // Provider buttons
+    document.querySelectorAll('.provider-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSelectedProvider = btn.getAttribute('data-provider');
+        const city = cityInput.value.trim() || 'London';
+        fetchAirQuality(city);
+      });
+    });
+
+    // Sidebar toggle
+    document.getElementById('sidebarToggleBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    });
+    document.getElementById('sidebarCloseBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.add('collapsed');
+    });
+
+    // Initial load
+    fetchAirQuality('London');
+  </script>
+</body>
+</html>

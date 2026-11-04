@@ -1,633 +1,726 @@
 /**
  * =========================================================================
- * 🔑 ONEAPI CHAT APPLICATION - REQUIRED KEYS & CONFIGURATION LIST
- * =========================================================================
- *
- * To use this Chat Web Application with the OneAPI backend proxy gateway,
- * you need ONE of the following client authentication credentials:
- *
- * 1. PROJECT_TOKEN (Recommended for client apps & proxy gateways):
- *    - Header: 'x-project-token: oneapi_dev_...' or 'Authorization: Bearer oneapi_dev_...'
- *    - Where to get: Open Dashboard (http://localhost:3000/dashboard) -> "Projects" tab
- *      -> Copy your Project Token (e.g. 'oneapi_dev_68fbc319...')
- *    - Format: 'oneapi_dev_<hexadecimal_string>'
- *
- * 2. DEVELOPER API_KEY (Alternative client authentication):
- *    - Header: 'x-api-key: oneapi_...' or 'Authorization: ApiKey oneapi_...'
- *    - Where to get: Open Dashboard (http://localhost:3000/dashboard) -> "API Keys" tab
- *      -> Generate a new Developer API Key
- *    - Format: 'oneapi_<alphanumeric_key>'
- *
- * 3. USER JWT ACCESS TOKEN (For testing with active developer session):
- *    - Header: 'Authorization: Bearer <jwt_token>'
- *    - Where to get: Stored in localStorage after logging into the dashboard
- *
- * -------------------------------------------------------------------------
- * 🔒 THIRD-PARTY PROVIDER KEYS (Stored securely in Backend AES-256-GCM Vault):
- *    These are NOT stored in frontend code. The backend gateway automatically
- *    decrypts and forwards them to providers during failover:
- *
- *    - Google Gemini API Key (Primary AI Provider):
- *      Get free API key at: https://aistudio.google.com
- *      Store via: Dashboard -> "API Providers" -> Gemini -> "Connect / Config"
- *
- *    - Groq Cloud API Key (Automatic Fallback AI Provider):
- *      Get free API key at: https://console.groq.com
- *      Store via: Dashboard -> "API Providers" -> Groq -> "Connect / Config"
- *
- *    * Note: If third-party keys are not yet configured in the vault, the
- *      gateway will return an informative prompt indicating which provider key
- *      needs to be connected in the dashboard.
+ * OneAPI ChatGPT-Style Application Logic
  * =========================================================================
  */
 
-// Global Configuration
-const CONFIG = {
-  // Backend Proxy Base URL
-  DEFAULT_BASE_URL: 'http://localhost:5000',
-
-  // Local Storage Keys
-  STORAGE_BASE_URL: 'oneapi_chat_base_url',
-  STORAGE_PROJECT_TOKEN: 'oneapi_chat_project_token',
-  STORAGE_API_KEY: 'oneapi_chat_api_key',
-  STORAGE_HISTORY: 'oneapi_chat_history',
-  STORAGE_SYSTEM_PROMPT: 'oneapi_chat_system_prompt',
-
-  // Default System Prompt
-  DEFAULT_SYSTEM_PROMPT:
-    'You are OneAPI Assistant, an intelligent, helpful, and concise AI helper connected through the OneAPI Multi-Provider Failover Gateway.',
+const STORAGE_KEYS = {
+  PROJECT_ID: 'oneapi_chat_project_id',
+  API_KEY: 'oneapi_chat_api_key',
+  SESSIONS: 'oneapi_chat_sessions',
+  ACTIVE_SESSION_ID: 'oneapi_chat_active_session',
+  PROVIDER: 'oneapi_chat_selected_provider',
+  MODEL: 'oneapi_chat_selected_model',
 };
 
-// Application State
+const DEFAULT_CONFIG = {
+  BASE_URL:
+    (typeof window !== 'undefined' &&
+      (window.ONEAPI_CONFIG?.BASE_URL ||
+        window.ONEAPI_BASE_URL ||
+        window.API_BASE_URL ||
+        localStorage.getItem('oneapi_base_url'))) ||
+    'http://localhost:5000',
+  PROVIDER: 'auto',
+  MODEL: 'auto',
+};
+
+const SUGGESTIONS = [
+  {
+    title: 'Explain OneAPI failover',
+    desc: 'How automated failover prevents app downtime',
+    prompt: 'Explain how OneAPI automated failover protects applications from unexpected upstream outages in 2 concise bullet points.',
+  },
+  {
+    title: 'Compare Gemini with Groq',
+    desc: 'Tradeoffs between multimodal and LPU speed',
+    prompt: 'Compare Google Gemini 3.5 Flash Lite with Groq Llama 3.3 70B in terms of speed, context size, and typical production use cases.',
+  },
+  {
+    title: 'Write a TypeScript proxy client',
+    desc: 'Sample code using fetch with x-api-key',
+    prompt: 'Write a clean TypeScript function that calls OneAPI /api/v1/proxy/ai/chat with an x-api-key header and handles the JSON response safely.',
+  },
+  {
+    title: 'Simulate upstream outage',
+    desc: 'How the failover matrix seamlessly recovers',
+    prompt: 'What happens under the hood when a primary provider returns a 429 rate-limit error or 503 gateway outage in OneAPI?',
+  },
+];
+
+// App State
 const state = {
-  baseUrl: localStorage.getItem(CONFIG.STORAGE_BASE_URL) || CONFIG.DEFAULT_BASE_URL,
-  projectToken: localStorage.getItem(CONFIG.STORAGE_PROJECT_TOKEN) || '',
-  apiKey: localStorage.getItem(CONFIG.STORAGE_API_KEY) || '',
-  systemPrompt: localStorage.getItem(CONFIG.STORAGE_SYSTEM_PROMPT) || CONFIG.DEFAULT_SYSTEM_PROMPT,
-  messages: [], // Array of { id, role: 'user' | 'assistant', content, timestamp, meta? }
+  baseUrl: DEFAULT_CONFIG.BASE_URL,
+  projectId: localStorage.getItem(STORAGE_KEYS.PROJECT_ID) || '',
+  apiKey: localStorage.getItem(STORAGE_KEYS.API_KEY) || '',
+  selectedProvider: localStorage.getItem(STORAGE_KEYS.PROVIDER) || DEFAULT_CONFIG.PROVIDER,
+  selectedModel: localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_CONFIG.MODEL,
+  sessions: JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSIONS) || '[]'),
+  activeSessionId: localStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID) || null,
   isLoading: false,
-  serverOnline: false,
+  gatewayOnline: false,
 };
 
-// DOM Elements
+// DOM References
 const elements = {
-  baseUrlInput: document.getElementById('baseUrlInput'),
-  projectTokenInput: document.getElementById('projectTokenInput'),
-  apiKeyInput: document.getElementById('apiKeyInput'),
-  saveConfigBtn: document.getElementById('saveConfigBtn'),
-  configToggleBtn: document.getElementById('configToggleBtn'),
-  configPanel: document.getElementById('configPanel'),
-  serverStatusDot: document.getElementById('serverStatusDot'),
-  serverStatusText: document.getElementById('serverStatusText'),
+  sidebar: document.getElementById('sidebar'),
+  sidebarToggleBtn: document.getElementById('sidebarToggleBtn'),
+  sidebarCloseBtn: document.getElementById('sidebarCloseBtn'),
+  newChatBtn: document.getElementById('newChatBtn'),
+  chatHistoryList: document.getElementById('chatHistoryList'),
   chatStream: document.getElementById('chatStream'),
   chatForm: document.getElementById('chatForm'),
   userInput: document.getElementById('userInput'),
   sendBtn: document.getElementById('sendBtn'),
   clearChatBtn: document.getElementById('clearChatBtn'),
-  exportChatBtn: document.getElementById('exportChatBtn'),
-  quickPromptBtns: document.querySelectorAll('.quick-prompt-btn'),
-  keyStatusBanner: document.getElementById('keyStatusBanner'),
-  activeProviderDisplay: document.getElementById('activeProviderDisplay'),
+  modelDropdownBtn: document.getElementById('modelDropdownBtn'),
+  modelDropdownMenu: document.getElementById('modelDropdownMenu'),
+  currentModelName: document.getElementById('currentModelName'),
+  activeEngineChip: document.getElementById('activeEngineChip'),
+  gatewayStatusPill: document.getElementById('gatewayStatusPill'),
+  statusCircle: document.getElementById('statusCircle'),
+  statusLabel: document.getElementById('statusLabel'),
+  credentialsModal: document.getElementById('credentialsModal'),
+  credentialsPill: document.getElementById('credentialsPill'),
+  configModalTrigger: document.getElementById('configModalTrigger'),
+  modalCloseBtn: document.getElementById('modalCloseBtn'),
+  projectIdInput: document.getElementById('projectIdInput'),
+  apiKeyInput: document.getElementById('apiKeyInput'),
+  saveCredentialsBtn: document.getElementById('saveCredentialsBtn'),
+  sidebarKeyDisplay: document.getElementById('sidebarKeyDisplay'),
+  sidebarKeyStatus: document.getElementById('sidebarKeyStatus'),
+  toggleApiKeyVisibility: document.getElementById('toggleApiKeyVisibility'),
 };
 
 // =========================================================================
 // Initialization
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
-  initUI();
-  loadSavedMessages();
-  checkServerHealth();
-  setupEventListeners();
+  // Sync latest raw developer API key if stored from dashboard session
+  if (!state.apiKey) {
+    const dashboardKey = localStorage.getItem('oneapi_latest_raw_developer_api_key');
+    if (dashboardKey) {
+      state.apiKey = dashboardKey;
+      localStorage.setItem(STORAGE_KEYS.API_KEY, dashboardKey);
+    }
+  }
 
-  // Periodic health check every 15 seconds
-  setInterval(checkServerHealth, 15000);
+  // Ensure an active session exists
+  if (!state.activeSessionId || !state.sessions.find((s) => s.id === state.activeSessionId)) {
+    createNewSession();
+  }
+
+  setupEventListeners();
+  updateCredentialsDisplay();
+  updateModelUI();
+  renderHistory();
+  renderActiveChat();
+  checkGatewayHealth();
+
+  // Periodic health check
+  setInterval(checkGatewayHealth, 15000);
 });
 
-function initUI() {
-  if (elements.baseUrlInput) elements.baseUrlInput.value = state.baseUrl;
-  if (elements.projectTokenInput) elements.projectTokenInput.value = state.projectToken;
-  if (elements.apiKeyInput) elements.apiKeyInput.value = state.apiKey;
-  updateKeyStatusBanner();
+// =========================================================================
+// Session Management
+// =========================================================================
+function createNewSession() {
+  const newSession = {
+    id: 'chat_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+    title: 'New chat',
+    messages: [],
+    createdAt: new Date().toISOString(),
+  };
+
+  state.sessions.unshift(newSession);
+  state.activeSessionId = newSession.id;
+  persistSessions();
+  renderHistory();
+  renderActiveChat();
+  elements.userInput.focus();
 }
 
-function setupEventListeners() {
-  // Save Config
-  if (elements.saveConfigBtn) {
-    elements.saveConfigBtn.addEventListener('click', () => {
-      state.baseUrl = elements.baseUrlInput.value.trim() || CONFIG.DEFAULT_BASE_URL;
-      state.projectToken = elements.projectTokenInput.value.trim();
-      state.apiKey = elements.apiKeyInput.value.trim();
-
-      localStorage.setItem(CONFIG.STORAGE_BASE_URL, state.baseUrl);
-      localStorage.setItem(CONFIG.STORAGE_PROJECT_TOKEN, state.projectToken);
-      localStorage.setItem(CONFIG.STORAGE_API_KEY, state.apiKey);
-
-      updateKeyStatusBanner();
-      checkServerHealth();
-
-      showToast('Configuration saved successfully!', 'success');
-      if (elements.configPanel) elements.configPanel.classList.remove('open');
-    });
-  }
-
-  // Toggle Config Panel
-  if (elements.configToggleBtn && elements.configPanel) {
-    elements.configToggleBtn.addEventListener('click', () => {
-      elements.configPanel.classList.toggle('open');
-    });
-  }
-
-  // Chat Form Submit
-  if (elements.chatForm) {
-    elements.chatForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      sendMessage();
-    });
-  }
-
-  // Auto-resize & Enter key handling on Textarea
-  if (elements.userInput) {
-    elements.userInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-
-    elements.userInput.addEventListener('input', () => {
-      elements.userInput.style.height = 'auto';
-      elements.userInput.style.height = Math.min(elements.userInput.scrollHeight, 160) + 'px';
-    });
-  }
-
-  // Clear Chat
-  if (elements.clearChatBtn) {
-    elements.clearChatBtn.addEventListener('click', () => {
-      if (confirm('Clear entire chat history?')) {
-        state.messages = [];
-        localStorage.removeItem(CONFIG.STORAGE_HISTORY);
-        renderMessages();
-      }
-    });
-  }
-
-  // Export Chat
-  if (elements.exportChatBtn) {
-    elements.exportChatBtn.addEventListener('click', exportChatHistory);
-  }
-
-  // Quick Prompt Chips
-  elements.quickPromptBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const prompt = btn.getAttribute('data-prompt');
-      if (prompt && elements.userInput) {
-        elements.userInput.value = prompt;
-        elements.userInput.focus();
-        sendMessage();
-      }
-    });
-  });
+function persistSessions() {
+  localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(state.sessions));
+  localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION_ID, state.activeSessionId);
 }
 
-// =========================================================================
-// Server Health & Status
-// =========================================================================
-async function checkServerHealth() {
-  try {
-    const res = await fetch(`${state.baseUrl}/health`);
-    const data = await res.json();
+function getActiveSession() {
+  return state.sessions.find((s) => s.id === state.activeSessionId) || null;
+}
 
-    if (res.ok || data.status === 'ok' || data.status === 'degraded') {
-      state.serverOnline = true;
-      if (elements.serverStatusDot) elements.serverStatusDot.className = 'status-dot online';
-      if (elements.serverStatusText) elements.serverStatusText.textContent = 'Backend Online (Port 5000)';
-    } else {
-      throw new Error('Unhealthy status');
+function deleteSession(sessionId, e) {
+  if (e) e.stopPropagation();
+  state.sessions = state.sessions.filter((s) => s.id !== sessionId);
+  if (state.activeSessionId === sessionId) {
+    state.activeSessionId = state.sessions[0]?.id || null;
+    if (!state.activeSessionId) {
+      createNewSession();
+      return;
     }
-  } catch (err) {
-    state.serverOnline = false;
-    if (elements.serverStatusDot) elements.serverStatusDot.className = 'status-dot offline';
-    if (elements.serverStatusText) elements.serverStatusText.textContent = 'Backend Offline';
   }
+  persistSessions();
+  renderHistory();
+  renderActiveChat();
 }
 
-function updateKeyStatusBanner() {
-  if (!elements.keyStatusBanner) return;
-
-  const hasProjectToken = Boolean(state.projectToken.trim());
-  const hasApiKey = Boolean(state.apiKey.trim());
-
-  if (hasProjectToken || hasApiKey) {
-    const keyType = hasProjectToken ? 'Project Token' : 'Developer API Key';
-    const preview = hasProjectToken
-      ? `${state.projectToken.slice(0, 14)}...`
-      : `${state.apiKey.slice(0, 12)}...`;
-
-    elements.keyStatusBanner.innerHTML = `
-      <div class="key-status-pill connected">
-        <span class="dot"></span>
-        <span>Authenticated with <strong>${keyType}</strong> (<code>${preview}</code>)</span>
-      </div>
-    `;
-  } else {
-    elements.keyStatusBanner.innerHTML = `
-      <div class="key-status-pill warning">
-        <span class="dot"></span>
-        <span>No Project Token configured. <a href="javascript:void(0)" onclick="document.getElementById('configPanel').classList.add('open')">Click here to enter token</a> or get one from the <a href="http://localhost:3000/dashboard" target="_blank">OneAPI Dashboard</a>.</span>
-      </div>
-    `;
+function switchSession(sessionId) {
+  state.activeSessionId = sessionId;
+  persistSessions();
+  renderHistory();
+  renderActiveChat();
+  // On mobile, auto-close sidebar after switching
+  if (window.innerWidth < 768) {
+    elements.sidebar.classList.add('collapsed');
   }
 }
 
 // =========================================================================
-// Messaging & Proxy API Execution
+// Rendering
 // =========================================================================
-async function sendMessage() {
-  if (!elements.userInput) return;
-  const text = elements.userInput.value.trim();
-  if (!text || state.isLoading) return;
-
-  // Check if credentials exist
-  if (!state.projectToken.trim() && !state.apiKey.trim()) {
-    showToast('Please enter your OneAPI Project Token or API Key in Settings first!', 'error');
-    if (elements.configPanel) elements.configPanel.classList.add('open');
+function renderHistory() {
+  elements.chatHistoryList.innerHTML = '';
+  if (state.sessions.length === 0) {
+    elements.chatHistoryList.innerHTML = '<div style="padding: 10px; color: #8e8e8e; font-size: 11px;">No chats yet</div>';
     return;
   }
 
-  // 1. Add User Message
+  state.sessions.forEach((s) => {
+    const item = document.createElement('div');
+    item.className = `history-item ${s.id === state.activeSessionId ? 'active' : ''}`;
+    item.innerHTML = `
+      <span class="history-title">${escapeHtml(s.title || 'New chat')}</span>
+      <button class="history-del-btn" title="Delete chat">✕</button>
+    `;
+
+    item.addEventListener('click', () => switchSession(s.id));
+    item.querySelector('.history-del-btn').addEventListener('click', (e) => deleteSession(s.id, e));
+    elements.chatHistoryList.appendChild(item);
+  });
+}
+
+function renderActiveChat() {
+  const session = getActiveSession();
+  elements.chatStream.innerHTML = '';
+
+  if (!session || session.messages.length === 0) {
+    renderEmptyState();
+    return;
+  }
+
+  session.messages.forEach((msg) => {
+    appendMessageDOM(msg);
+  });
+
+  scrollToBottom();
+}
+
+function renderEmptyState() {
+  const emptyDiv = document.createElement('div');
+  emptyDiv.className = 'empty-state';
+  emptyDiv.innerHTML = `
+    <div class="empty-logo">⚡</div>
+    <h1 class="empty-title">What can I help with today?</h1>
+    <p class="empty-subtitle">
+      Connected to OneAPI Multi-Provider Proxy Gateway with real-time automatic failover across Gemini, Groq, and OpenRouter.
+    </p>
+
+    <div class="suggestion-grid">
+      ${SUGGESTIONS.map(
+        (s, i) => `
+        <div class="suggestion-card" data-index="${i}">
+          <div class="card-title">${s.title}</div>
+          <div class="card-desc">${s.desc}</div>
+        </div>
+      `
+      ).join('')}
+    </div>
+  `;
+
+  emptyDiv.querySelectorAll('.suggestion-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const idx = card.getAttribute('data-index');
+      elements.userInput.value = SUGGESTIONS[idx].prompt;
+      handleSendMessage();
+    });
+  });
+
+  elements.chatStream.appendChild(emptyDiv);
+}
+
+function appendMessageDOM(msg) {
+  const isUser = msg.role === 'user';
+  const row = document.createElement('div');
+  row.className = `message-row ${isUser ? 'user' : 'assistant'}`;
+
+  let bodyHtml = '';
+  if (isUser) {
+    bodyHtml = `<div class="message-bubble">${escapeHtml(msg.content)}</div>`;
+  } else {
+    bodyHtml = `
+      <div class="message-sender">OneAPI Assistant</div>
+      <div class="message-bubble">${formatMarkdown(msg.content)}</div>
+    `;
+
+    if (msg.meta) {
+      const isFallback = Boolean(msg.meta.fallbackTriggered);
+      bodyHtml += `
+        <div class="telemetry-pill ${isFallback ? 'fallback' : ''}">
+          <span>${isFallback ? '🔄 Fallback Provider:' : '⚡ Provider:'} <strong>${msg.meta.finalProvider}</strong></span>
+          <span>&bull;</span>
+          <span>⏱ ${msg.meta.latencyMs}ms</span>
+          <span>&bull;</span>
+          <span>${msg.meta.status || 200} OK</span>
+        </div>
+      `;
+    }
+  }
+
+  row.innerHTML = `
+    <div class="message-inner">
+      <div class="message-avatar ${isUser ? 'user' : 'assistant'}">
+        ${isUser ? '👤' : '⚡'}
+      </div>
+      <div class="message-body">
+        ${bodyHtml}
+      </div>
+    </div>
+  `;
+
+  // Attach code copy listeners
+  row.querySelectorAll('.copy-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const codeText = btn.getAttribute('data-code');
+      navigator.clipboard.writeText(codeText);
+      btn.textContent = 'Copied!';
+      setTimeout(() => (btn.textContent = 'Copy'), 2000);
+    });
+  });
+
+  elements.chatStream.appendChild(row);
+}
+
+function appendTypingIndicator() {
+  const row = document.createElement('div');
+  row.id = 'typingIndicator';
+  row.className = 'message-row assistant';
+  row.innerHTML = `
+    <div class="message-inner">
+      <div class="message-avatar assistant">⚡</div>
+      <div class="message-body">
+        <div class="message-sender">OneAPI Assistant</div>
+        <div class="typing-dots">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  elements.chatStream.appendChild(row);
+  scrollToBottom();
+}
+
+function removeTypingIndicator() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function scrollToBottom() {
+  elements.chatStream.scrollTop = elements.chatStream.scrollHeight;
+}
+
+// =========================================================================
+// API & Communication
+// =========================================================================
+async function handleSendMessage() {
+  const text = elements.userInput.value.trim();
+  if (!text || state.isLoading) return;
+
+  const session = getActiveSession();
+  if (!session) return;
+
+  // Set chat title from first prompt
+  if (session.messages.length === 0) {
+    session.title = text.slice(0, 32) + (text.length > 32 ? '...' : '');
+    renderHistory();
+  }
+
+  // Remove empty state if present
+  const emptyState = elements.chatStream.querySelector('.empty-state');
+  if (emptyState) emptyState.remove();
+
+  // Add User Message
   const userMsg = {
     id: 'msg_' + Date.now(),
     role: 'user',
     content: text,
     timestamp: new Date().toISOString(),
   };
-  state.messages.push(userMsg);
-  elements.userInput.value = '';
-  elements.userInput.style.height = 'auto';
 
-  // Render immediately
-  renderMessages();
+  session.messages.push(userMsg);
+  appendMessageDOM(userMsg);
+  elements.userInput.value = '';
+  updateInputHeight();
+  persistSessions();
   scrollToBottom();
 
-  // 2. Set Loading State
   state.isLoading = true;
-  updateLoadingUI(true);
-
-  // Add Assistant placeholder message with typing animation
-  const tempAssistantId = 'temp_' + Date.now();
-  renderTypingIndicator(tempAssistantId);
+  elements.sendBtn.disabled = true;
+  appendTypingIndicator();
 
   const startTime = performance.now();
 
   try {
-    // Prepare conversation payload for Proxy API
-    // Format: messages array of { role: 'user' | 'assistant', content }
-    const formattedMessages = state.messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
+    const payload = {
+      messages: session.messages.map((m) => ({ role: m.role, content: m.content })),
+    };
 
-    // Build Request Headers
+    if (state.selectedModel !== 'auto') {
+      payload.provider = state.selectedModel;
+    }
+
     const headers = {
       'Content-Type': 'application/json',
     };
 
-    if (state.projectToken.trim()) {
-      headers['x-project-token'] = state.projectToken.trim();
-    } else if (state.apiKey.trim()) {
-      headers['x-api-key'] = state.apiKey.trim();
+    if (state.apiKey) {
+      headers['x-api-key'] = state.apiKey;
+      headers['Authorization'] = `Bearer ${state.apiKey}`;
     }
 
-    // Call OneAPI Gateway Proxy Endpoint
-    const response = await fetch(`${state.baseUrl}/api/v1/proxy/ai/chat`, {
+    if (state.projectId) {
+      headers['x-project-id'] = state.projectId;
+    }
+
+    if (state.selectedProvider && state.selectedProvider !== 'auto') {
+      headers['x-oneapi-provider'] = state.selectedProvider;
+      payload.provider = state.selectedProvider;
+    }
+
+    if (state.selectedModel && state.selectedModel !== 'auto') {
+      headers['x-oneapi-model'] = state.selectedModel;
+      payload.model = state.selectedModel;
+    }
+
+    const response = await fetch(`${state.baseUrl.replace(/\/$/, '')}/api/v1/proxy/ai/chat`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        messages: formattedMessages,
-        temperature: 0.7,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const latencyMs = Math.round(performance.now() - startTime);
     const data = await response.json();
+    removeTypingIndicator();
 
-    removeTypingIndicator(tempAssistantId);
-
-    if (response.ok && data.success) {
-      // Extract Assistant Reply
-      let assistantReply = '';
-      if (data.data?.message?.content) {
-        assistantReply = data.data.message.content;
-      } else if (typeof data.data === 'string') {
-        assistantReply = data.data;
-      } else if (data.data?.response) {
-        assistantReply = data.data.response;
-      } else {
-        assistantReply = JSON.stringify(data.data, null, 2);
-      }
-
-      // Metadata from Gateway Proxy headers and _oneapi object
-      const providerUsed =
-        response.headers.get('x-oneapi-provider') ||
-        data._oneapi?.finalProvider ||
-        data.data?.provider ||
-        'gemini';
-
-      const failoverOccurred =
-        response.headers.get('x-oneapi-failover') === 'true' ||
-        data._oneapi?.fallbackTriggered ||
-        false;
-
+    if (!response.ok || data.success === false) {
+      const errorMsg = data.error?.message || `Gateway returned status ${response.status}`;
       const assistantMsg = {
         id: 'msg_' + Date.now(),
         role: 'assistant',
-        content: assistantReply,
-        timestamp: new Date().toISOString(),
+        content: `⚠️ **Proxy Gateway Error**: ${errorMsg}\n\n*Tip: Connect your API Key in Settings or visit the OneAPI Dashboard to verify vault provider keys.*`,
         meta: {
-          provider: providerUsed,
-          latencyMs: latencyMs,
-          failover: failoverOccurred,
-        },
-      };
-
-      state.messages.push(assistantMsg);
-      saveMessages();
-      renderMessages();
-
-      // Update Top Active Provider Display
-      if (elements.activeProviderDisplay) {
-        elements.activeProviderDisplay.innerHTML = `
-          <span class="provider-tag ${failoverOccurred ? 'fallback' : 'primary'}">
-            ${failoverOccurred ? '🛡️ Fallback: ' + providerUsed : '⚡ Primary: ' + providerUsed} (${latencyMs}ms)
-          </span>
-        `;
-      }
-    } else {
-      // Server Error / Missing Vault Key Error
-      const errorMsg = data.error?.message || data.message || 'Error communicating with AI Gateway.';
-      const errorCode = data.error?.code || 'GATEWAY_ERROR';
-
-      const assistantErrorMsg = {
-        id: 'msg_' + Date.now(),
-        role: 'assistant',
-        content: `⚠️ **OneAPI Gateway Error (${errorCode})**\n\n${errorMsg}\n\n*Tip: Ensure your Google Gemini or Groq API key is stored in your project's AES-256 Vault via the [OneAPI Dashboard](http://localhost:3000/dashboard).*`,
-        timestamp: new Date().toISOString(),
-        meta: {
-          provider: 'gateway-error',
+          finalProvider: state.selectedModel === 'auto' ? 'gateway' : state.selectedModel,
           latencyMs,
-          failover: false,
-          isError: true,
+          status: response.status,
+          fallbackTriggered: false,
         },
       };
 
-      state.messages.push(assistantErrorMsg);
-      saveMessages();
-      renderMessages();
+      session.messages.push(assistantMsg);
+      appendMessageDOM(assistantMsg);
+      persistSessions();
+      scrollToBottom();
+      return;
     }
-  } catch (err) {
-    removeTypingIndicator(tempAssistantId);
-    const latencyMs = Math.round(performance.now() - startTime);
 
-    const networkErrorMsg = {
+    // Extract assistant response content
+    const content =
+      data.data?.choices?.[0]?.message?.content ||
+      data.choices?.[0]?.message?.content ||
+      data.data?.content ||
+      data.content ||
+      'Response received.';
+
+    const finalProvider =
+      data._oneapi?.finalProvider ||
+      data.data?._oneapi?.finalProvider ||
+      data.data?.provider ||
+      data.provider ||
+      (state.selectedModel !== 'auto' ? state.selectedModel : 'gemini');
+
+    const fallbackTriggered = Boolean(data._oneapi?.fallbackTriggered || data.data?._oneapi?.fallbackTriggered);
+
+    const assistantMsg = {
       id: 'msg_' + Date.now(),
       role: 'assistant',
-      content: `❌ **Network Connection Error**\n\nUnable to reach backend at \`${state.baseUrl}\`.\n\nPlease verify that the OneAPI backend server is running on port 5000: \`pnpm dev\` in the \`backend/\` directory.`,
-      timestamp: new Date().toISOString(),
+      content,
       meta: {
-        provider: 'offline',
-        latencyMs,
-        failover: false,
-        isError: true,
+        finalProvider,
+        latencyMs: data._oneapi?.latencyMs || latencyMs,
+        status: 200,
+        fallbackTriggered,
       },
     };
 
-    state.messages.push(networkErrorMsg);
-    saveMessages();
-    renderMessages();
+    session.messages.push(assistantMsg);
+    appendMessageDOM(assistantMsg);
+    persistSessions();
+    scrollToBottom();
+  } catch (err) {
+    removeTypingIndicator();
+    const assistantMsg = {
+      id: 'msg_' + Date.now(),
+      role: 'assistant',
+      content: `❌ **Connection Failed**: Unable to reach backend gateway at \`${state.baseUrl}\`.\n\nEnsure backend server is running (\`pnpm --prefix backend dev\`) and your API Key is valid.`,
+      meta: {
+        finalProvider: 'network',
+        latencyMs: Math.round(performance.now() - startTime),
+        status: 500,
+        fallbackTriggered: false,
+      },
+    };
+
+    session.messages.push(assistantMsg);
+    appendMessageDOM(assistantMsg);
+    persistSessions();
+    scrollToBottom();
   } finally {
     state.isLoading = false;
-    updateLoadingUI(false);
-    scrollToBottom();
+    updateInputState();
   }
 }
 
 // =========================================================================
-// UI Rendering & Message Display
+// Health Check
 // =========================================================================
-function renderMessages() {
-  if (!elements.chatStream) return;
-
-  if (state.messages.length === 0) {
-    elements.chatStream.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">⚡</div>
-        <h2>OneAPI AI Assistant</h2>
-        <p>A simple chat application powered by the OneAPI Multi-Provider Proxy Gateway with zero-downtime automatic failover.</p>
-        <div class="feature-badges">
-          <span class="badge">🔄 Gemini ➔ Groq Failover</span>
-          <span class="badge">🔒 AES-256-GCM Vault</span>
-          <span class="badge">⚡ Sub-second Latency</span>
-        </div>
-        <div class="quick-prompts-title">Try one of these quick prompts:</div>
-        <div class="quick-prompts-grid">
-          <button class="quick-prompt-btn" onclick="applyQuickPrompt('Explain how OneAPI failover protects applications from downtime in 2 bullet points.')">
-            🛡️ How does automatic failover work?
-          </button>
-          <button class="quick-prompt-btn" onclick="applyQuickPrompt('Write a clean TypeScript fetch helper to call the OneAPI proxy gateway.')">
-            💻 TypeScript OneAPI Fetch Helper
-          </button>
-          <button class="quick-prompt-btn" onclick="applyQuickPrompt('Compare Google Gemini 1.5 Flash vs Groq Llama 3 for developer applications.')">
-            ⚡ Compare Gemini vs Groq
-          </button>
-          <button class="quick-prompt-btn" onclick="applyQuickPrompt('What are the security benefits of storing third-party API keys in an AES-256 vault?')">
-            🔐 AES-256 Vault Benefits
-          </button>
-        </div>
-      </div>
-    `;
-    return;
-  }
-
-  elements.chatStream.innerHTML = state.messages
-    .map((msg) => {
-      const isUser = msg.role === 'user';
-      const formattedTime = new Date(msg.timestamp).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-
-      return `
-        <div class="message-wrapper ${isUser ? 'user-message' : 'assistant-message'}">
-          <div class="message-avatar">
-            ${isUser ? '👤' : '⚡'}
-          </div>
-          <div class="message-bubble-container">
-            <div class="message-header">
-              <span class="message-sender">${isUser ? 'You' : 'OneAPI Assistant'}</span>
-              <span class="message-time">${formattedTime}</span>
-            </div>
-            <div class="message-bubble ${msg.meta?.isError ? 'error-bubble' : ''}">
-              ${formatMarkdown(msg.content)}
-            </div>
-            ${
-              msg.meta && !isUser
-                ? `
-              <div class="message-meta-bar">
-                <span class="meta-item provider-badge ${msg.meta.failover ? 'fallback' : 'primary'}">
-                  ${msg.meta.failover ? '🛡️ Fallback: ' + msg.meta.provider : '⚡ Provider: ' + msg.meta.provider}
-                </span>
-                <span class="meta-item latency-badge">
-                  ⏱️ ${msg.meta.latencyMs}ms
-                </span>
-                ${
-                  msg.meta.failover
-                    ? '<span class="meta-item failover-badge">🔄 Automatic Failover Triggered</span>'
-                    : '<span class="meta-item direct-badge">✅ Direct Route</span>'
-                }
-              </div>
-            `
-                : ''
-            }
-          </div>
-        </div>
-      `;
-    })
-    .join('');
-}
-
-function renderTypingIndicator(tempId) {
-  if (!elements.chatStream) return;
-  const indicator = document.createElement('div');
-  indicator.id = tempId;
-  indicator.className = 'message-wrapper assistant-message typing-indicator-wrapper';
-  indicator.innerHTML = `
-    <div class="message-avatar">⚡</div>
-    <div class="message-bubble-container">
-      <div class="message-header">
-        <span class="message-sender">OneAPI Assistant</span>
-      </div>
-      <div class="message-bubble typing-bubble">
-        <div class="typing-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-        <span class="typing-label">Querying multi-provider proxy gateway...</span>
-      </div>
-    </div>
-  `;
-  elements.chatStream.appendChild(indicator);
-  scrollToBottom();
-}
-
-function removeTypingIndicator(tempId) {
-  const el = document.getElementById(tempId);
-  if (el) el.remove();
-}
-
-function updateLoadingUI(loading) {
-  if (elements.sendBtn) {
-    elements.sendBtn.disabled = loading;
-    elements.sendBtn.innerHTML = loading
-      ? '<span class="spinner"></span>'
-      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
-  }
-}
-
-function scrollToBottom() {
-  if (elements.chatStream) {
-    elements.chatStream.scrollTop = elements.chatStream.scrollHeight;
-  }
-}
-
-// Global helper for inline prompt clicks
-window.applyQuickPrompt = function (text) {
-  if (elements.userInput) {
-    elements.userInput.value = text;
-    elements.userInput.focus();
-    sendMessage();
-  }
-};
-
-// =========================================================================
-// Storage & Utilities
-// =========================================================================
-function saveMessages() {
-  localStorage.setItem(CONFIG.STORAGE_HISTORY, JSON.stringify(state.messages.slice(-50)));
-}
-
-function loadSavedMessages() {
+async function checkGatewayHealth() {
   try {
-    const raw = localStorage.getItem(CONFIG.STORAGE_HISTORY);
-    if (raw) {
-      state.messages = JSON.parse(raw);
+    const res = await fetch(`${state.baseUrl.replace(/\/$/, '')}/health`, { method: 'GET' });
+    const data = await res.json();
+    state.gatewayOnline = res.ok && data.status === 'HEALTHY';
+    elements.statusCircle.className = `status-circle ${state.gatewayOnline ? 'online' : 'offline'}`;
+    elements.statusLabel.textContent = state.gatewayOnline ? 'Gateway 5000 Online' : 'Gateway Degraded';
+  } catch {
+    state.gatewayOnline = false;
+    elements.statusCircle.className = 'status-circle offline';
+    elements.statusLabel.textContent = 'Gateway Offline';
+  }
+}
+
+// =========================================================================
+// Event Listeners & UI Helpers
+// =========================================================================
+function setupEventListeners() {
+  // Sidebar toggle
+  elements.sidebarToggleBtn.addEventListener('click', () => {
+    elements.sidebar.classList.toggle('collapsed');
+  });
+
+  elements.sidebarCloseBtn.addEventListener('click', () => {
+    elements.sidebar.classList.add('collapsed');
+  });
+
+  // New Chat
+  elements.newChatBtn.addEventListener('click', createNewSession);
+
+  // Clear Chat
+  elements.clearChatBtn.addEventListener('click', () => {
+    if (confirm('Clear messages in this chat session?')) {
+      const session = getActiveSession();
+      if (session) {
+        session.messages = [];
+        session.title = 'New chat';
+        persistSessions();
+        renderHistory();
+        renderActiveChat();
+      }
     }
-  } catch (e) {
-    state.messages = [];
-  }
-  renderMessages();
+  });
+
+  // Chat Form Submit
+  elements.chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    handleSendMessage();
+  });
+
+  // Textarea auto-resize and Enter key handling
+  elements.userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  });
+
+  elements.userInput.addEventListener('input', () => {
+    updateInputHeight();
+    updateInputState();
+  });
+
+  // Model dropdown toggle
+  elements.modelDropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    elements.modelDropdownMenu.classList.toggle('open');
+  });
+
+  document.addEventListener('click', () => {
+    elements.modelDropdownMenu.classList.remove('open');
+  });
+
+  // Model selector options
+  elements.modelDropdownMenu.querySelectorAll('.model-option').forEach((opt) => {
+    opt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const p = opt.getAttribute('data-provider') || 'auto';
+      const m = opt.getAttribute('data-model') || 'auto';
+      state.selectedProvider = p;
+      state.selectedModel = m;
+      localStorage.setItem(STORAGE_KEYS.PROVIDER, p);
+      localStorage.setItem(STORAGE_KEYS.MODEL, m);
+      updateModelUI();
+      elements.modelDropdownMenu.classList.remove('open');
+    });
+  });
+
+  // Credentials Modal
+  const openModal = () => {
+    if (elements.projectIdInput) elements.projectIdInput.value = state.projectId;
+    elements.apiKeyInput.value = state.apiKey;
+    elements.credentialsModal.classList.add('open');
+  };
+
+  const closeModal = () => {
+    elements.credentialsModal.classList.remove('open');
+  };
+
+  elements.credentialsPill.addEventListener('click', openModal);
+  elements.configModalTrigger.addEventListener('click', openModal);
+  elements.modalCloseBtn.addEventListener('click', closeModal);
+
+  elements.saveCredentialsBtn.addEventListener('click', () => {
+    const newProjectId = elements.projectIdInput ? elements.projectIdInput.value.trim() : '';
+    const newKey = elements.apiKeyInput.value.trim();
+
+    state.projectId = newProjectId;
+    state.apiKey = newKey;
+
+    localStorage.setItem(STORAGE_KEYS.PROJECT_ID, newProjectId);
+    localStorage.setItem(STORAGE_KEYS.API_KEY, newKey);
+
+    updateCredentialsDisplay();
+    closeModal();
+    checkGatewayHealth();
+  });
+
+  elements.toggleApiKeyVisibility.addEventListener('click', () => {
+    const isPass = elements.apiKeyInput.type === 'password';
+    elements.apiKeyInput.type = isPass ? 'text' : 'password';
+    elements.toggleApiKeyVisibility.textContent = isPass ? '🔒' : '👁️';
+  });
 }
 
-function exportChatHistory() {
-  if (state.messages.length === 0) {
-    showToast('No messages to export.', 'error');
-    return;
-  }
-  const blob = new Blob([JSON.stringify(state.messages, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `oneapi-chat-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Chat history exported!', 'success');
+function updateInputHeight() {
+  elements.userInput.style.height = 'auto';
+  elements.userInput.style.height = Math.min(elements.userInput.scrollHeight, 180) + 'px';
 }
 
-// Simple, safe Markdown parser for Code Blocks, Bold, Lists
+function updateInputState() {
+  const hasText = elements.userInput.value.trim().length > 0;
+  elements.sendBtn.disabled = !hasText || state.isLoading;
+  if (hasText) {
+    elements.sendBtn.classList.add('active');
+  } else {
+    elements.sendBtn.classList.remove('active');
+  }
+}
+
+function updateModelUI() {
+  const options = Array.from(elements.modelDropdownMenu.querySelectorAll('.model-option'));
+  let activeOpt = options.find((opt) => {
+    const p = opt.getAttribute('data-provider') || 'auto';
+    const m = opt.getAttribute('data-model') || 'auto';
+    return (p === state.selectedProvider && m === state.selectedModel) || (p === 'auto' && state.selectedProvider === 'auto' && state.selectedModel === 'auto');
+  });
+
+  if (!activeOpt && state.selectedProvider === 'auto') {
+    activeOpt = options[0];
+  }
+
+  const title = activeOpt ? activeOpt.querySelector('.opt-title')?.textContent?.trim() || 'OneAPI Auto-Failover' : 'OneAPI Auto-Failover';
+  const icon = activeOpt ? activeOpt.querySelector('.opt-icon')?.textContent?.trim() || '⚡' : '⚡';
+
+  elements.currentModelName.textContent = title;
+  const iconSpan = elements.modelDropdownBtn.querySelector('.model-icon');
+  if (iconSpan) iconSpan.textContent = icon;
+  elements.activeEngineChip.textContent = title;
+
+  options.forEach((opt) => {
+    const p = opt.getAttribute('data-provider') || 'auto';
+    const m = opt.getAttribute('data-model') || 'auto';
+    const isSelected =
+      (p === state.selectedProvider && m === state.selectedModel) ||
+      (p === 'auto' && state.selectedProvider === 'auto' && state.selectedModel === 'auto');
+    if (isSelected) {
+      opt.classList.add('active');
+    } else {
+      opt.classList.remove('active');
+    }
+  });
+}
+
+function updateCredentialsDisplay() {
+  if (state.apiKey) {
+    const masked = state.apiKey.length > 12 ? `${state.apiKey.slice(0, 8)}...${state.apiKey.slice(-4)}` : 'Key Set';
+    elements.sidebarKeyDisplay.textContent = masked;
+    elements.sidebarKeyStatus.textContent = '✓ Ready to Proxy';
+  } else {
+    elements.sidebarKeyDisplay.textContent = 'Set API Key';
+    elements.sidebarKeyStatus.textContent = 'Key Required';
+  }
+}
+
+// =========================================================================
+// Markdown & Escape Utilities
+// =========================================================================
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function formatMarkdown(text) {
   if (!text) return '';
 
-  let html = text
-    // Escape HTML
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Triple backticks Code Blocks
-  html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_match, lang, code) => {
-    return `<div class="code-block"><div class="code-header">${lang || 'code'}</div><pre><code>${code.trim()}</code></pre></div>`;
+  // 1. Code blocks ```lang ... ```
+  let formatted = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_match, lang, code) => {
+    const l = lang || 'code';
+    const escapedCode = escapeHtml(code.trim());
+    return `
+      <div class="code-block">
+        <div class="code-header">
+          <span>${l}</span>
+          <button class="copy-btn" data-code="${escapeHtml(code.trim())}">Copy</button>
+        </div>
+        <pre><code>${escapedCode}</code></pre>
+      </div>
+    `;
   });
 
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+  // 2. Inline code `...`
+  formatted = formatted.replace(/`([^`]+)`/g, '<code style="background: #2a2a2a; color: #38bdf8; padding: 2px 6px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px;">$1</code>');
 
-  // Bold
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // 3. Bold **...**
+  formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
-  // Italic
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  // 4. Bullet points
+  formatted = formatted.replace(/^\s*[-*]\s+(.*)$/gm, '<li style="margin-left: 20px;">$1</li>');
 
-  // Bullet points
-  html = html.replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+  // 5. Line breaks
+  formatted = formatted.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>');
 
-  // Line breaks to <br>
-  html = html.replace(/\n/g, '<br>');
-
-  return html;
-}
-
-function showToast(message, type = 'info') {
-  const existing = document.querySelector('.toast-notification');
-  if (existing) existing.remove();
-
-  const toast = document.createElement('div');
-  toast.className = `toast-notification toast-${type}`;
-  toast.textContent = message;
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add('fade-out');
-    setTimeout(() => toast.remove(), 400);
-  }, 3000);
+  return formatted;
 }

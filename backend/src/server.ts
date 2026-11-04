@@ -23,7 +23,10 @@ async function bootstrap() {
     console.log(`\n✅ Server is live and listening on http://0.0.0.0:${env.PORT}`);
     console.log(`📍 Health Check:        http://localhost:${env.PORT}/health`);
     console.log(`📍 Auth Routes Base:    http://localhost:${env.PORT}/api/v1/auth`);
-    console.log(`📍 Projects Base:       http://localhost:${env.PORT}/api/v1/projects`);
+    console.log(`📍 Vault Base:          http://localhost:${env.PORT}/api/v1/vault`);
+    console.log(`📍 Routing Base:        http://localhost:${env.PORT}/api/v1/routing`);
+    console.log(`📍 Dashboard Overview:  http://localhost:${env.PORT}/api/v1/dashboard/overview`);
+    console.log(`📍 All Providers:       http://localhost:${env.PORT}/api/v1/providers`);
     console.log(`📍 Gateway Proxy Base:  http://localhost:${env.PORT}/api/v1/proxy`);
     console.log(`🔒 CORS Origin Policy:  All IPs allowed (${env.CORS_ORIGIN})`);
     console.log('------------------------------------------------------\n');

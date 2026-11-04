@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { User, type IUser, type IApiKey } from '../models/User.js';
+import { ApiKey } from '../models/ApiKey.js';
 import { hashToken, safeCompare } from '../utils/crypto.js';
 import { AuditLog } from '../models/AuditLog.js';
 
@@ -65,6 +66,55 @@ export async function validateApiKey(
       query.user_id = userId;
     }
 
+    const hashedKey = hashToken(rawApiKey);
+
+    // 1. Try finding in dedicated ApiKey model
+    const dbKey = await ApiKey.findOne({ keyHash: hashedKey }).populate('userId');
+    if (dbKey && dbKey.userId) {
+      const u = dbKey.userId as any;
+      const matchesEmail = !userEmail || u.email.toLowerCase() === userEmail.toLowerCase();
+      const matchesId = !userId || u.user_id === userId || u._id.toString() === userId;
+
+      if (!matchesEmail || !matchesId) {
+        res.status(401).json({
+          success: false,
+          error: {
+            code: 'USER_MISMATCH',
+            message: 'No account matches the provided user ID and email combination.',
+          },
+        });
+        return;
+      }
+
+      if (!dbKey.isActive) {
+        res.status(403).json({
+          success: false,
+          error: {
+            code: 'API_KEY_DEACTIVATED',
+            message: 'This API key has been deactivated. Please generate or activate a new one.',
+          },
+        });
+        return;
+      }
+
+      if (dbKey.expiresAt && dbKey.expiresAt < new Date()) {
+        res.status(403).json({
+          success: false,
+          error: {
+            code: 'API_KEY_EXPIRED',
+            message: 'This API key has expired.',
+          },
+        });
+        return;
+      }
+
+      req.apiKeyUser = u;
+      req.apiKeyData = dbKey as any;
+
+      ApiKey.updateOne({ _id: dbKey._id }, { $set: { lastUsedAt: new Date() } }).catch(() => {});
+      return next();
+    }
+
     const user = await User.findOne(query).select('+apiKeys.keyHash');
     if (!user) {
       res.status(401).json({
@@ -77,7 +127,6 @@ export async function validateApiKey(
       return;
     }
 
-    const hashedKey = hashToken(rawApiKey);
     const keyRecord = user.apiKeys.find((k) => safeCompare(k.keyHash, hashedKey));
 
     if (!keyRecord) {

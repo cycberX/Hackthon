@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OneAPI Weather Station | Multi-Category Gateway Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .weather-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .weather-search-bar {
+      display: flex;
+      gap: 10px;
+      background: #18181b;
+      padding: 8px;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    .weather-search-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 15px;
+      padding: 10px 16px;
+      font-family: inherit;
+    }
+
+    .weather-search-bar input::placeholder {
+      color: #71717a;
+    }
+
+    .weather-search-btn {
+      background: #0284c7;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      border: none;
+      padding: 0 24px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .weather-search-btn:hover {
+      background: #0369a1;
+      transform: translateY(-1px);
+    }
+
+    .geo-btn {
+      background: #27272a;
+      color: #38bdf8;
+      font-weight: 600;
+      font-size: 13px;
+      border: none;
+      padding: 0 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .geo-btn:hover {
+      background: #3f3f46;
+      color: #fff;
+    }
+
+    .provider-toggle-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .provider-btn {
+      background: #18181b;
+      color: #a1a1aa;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .provider-btn:hover {
+      background: #27272a;
+      color: #fff;
+    }
+
+    .provider-btn.active {
+      background: #38bdf8;
+      color: #000;
+    }
+
+    .quick-cities {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .city-chip {
+      background: #18181b;
+      color: #a1a1aa;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .city-chip:hover {
+      background: #27272a;
+      color: #fff;
+    }
+
+    .city-chip.active {
+      background: #38bdf8;
+      color: #000;
+    }
+
+    .weather-card {
+      background: linear-gradient(135deg, #18181b 0%, #09090b 100%);
+      border-radius: 24px;
+      padding: 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+    }
+
+    .weather-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .weather-location {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    .weather-condition-text {
+      font-size: 15px;
+      color: #38bdf8;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .weather-temp-huge {
+      font-size: 80px;
+      font-weight: 900;
+      line-height: 1;
+      margin-top: 16px;
+      letter-spacing: -0.04em;
+      color: #fff;
+    }
+
+    .weather-temp-unit {
+      font-size: 32px;
+      color: #71717a;
+      font-weight: 500;
+      vertical-align: super;
+    }
+
+    .weather-icon-huge {
+      font-size: 84px;
+      filter: drop-shadow(0 10px 20px rgba(56, 189, 248, 0.2));
+    }
+
+    .weather-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .weather-metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .metric-box {
+      background: #27272a;
+      border-radius: 16px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: #a1a1aa;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-val {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .failover-status-box {
+      background: #18181b;
+      border-radius: 16px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .failover-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .failover-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: #a1a1aa;
+    }
+
+    .failover-details div strong {
+      color: #fff;
+    }
+  </style>
+</head>
+<body class="chatgpt-body">
+  <div class="chatgpt-container">
+    <!-- SIDEBAR -->
+    <aside class="chatgpt-sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-header">
+          <div class="brand">
+            <div class="brand-icon">⛅</div>
+            <span class="brand-name">OneAPI</span>
+          </div>
+          <button id="sidebarCloseBtn" class="icon-btn sm" title="Close sidebar">✕</button>
+        </div>
+
+        <div class="apps-nav">
+          <div class="nav-heading">ONEAPI DEMOS</div>
+          <a href="index.html" class="nav-item">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">AI Chatbot</span>
+          </a>
+          <a href="weather.html" class="nav-item active">
+            <span class="nav-icon">⛅</span>
+            <span class="nav-label">Weather Station</span>
+            <span class="pill-live">Live</span>
+          </a>
+          <a href="music.html" class="nav-item">
+            <span class="nav-icon">🎵</span>
+            <span class="nav-label">Music &amp; Audio</span>
+          </a>
+          <a href="news.html" class="nav-item">
+            <span class="nav-icon">📰</span>
+            <span class="nav-label">News Radar</span>
+          </a>
+          <a href="environment.html" class="nav-item">
+            <span class="nav-icon">🌱</span>
+            <span class="nav-label">Air Quality Monitor</span>
+          </a>
+          <a href="http://localhost:3000/dashboard" target="_blank" class="nav-item external">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Developer Dashboard</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="account-pill" id="credentialsPill">
+          <div class="user-avatar" style="color: #38bdf8;">🔑</div>
+          <div class="account-info">
+            <span class="account-title" id="sidebarKeyDisplay">Developer Key</span>
+            <span class="account-status">✓ Authenticated</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN WEATHER VIEW -->
+    <main class="chatgpt-main" style="overflow-y: auto;">
+      <header class="chatgpt-nav">
+        <div class="nav-left">
+          <button id="sidebarToggleBtn" class="icon-btn">☰</button>
+          <div style="font-weight: 700; font-size: 15px; color: #fff;">
+            ⛅ OneAPI Weather Gateway
+          </div>
+        </div>
+        <div class="nav-right">
+          <div class="gateway-pill">
+            <span class="status-circle online"></span>
+            <span>Gateway /api/v1/proxy/weather</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="weather-container">
+        <!-- Search, Geolocation & Quick Chips -->
+        <div class="weather-search-bar">
+          <input type="text" id="cityInput" placeholder="Enter city name (e.g. San Francisco, Tokyo, London, Paris)..." value="San Francisco" />
+          <button id="geoBtn" class="geo-btn" title="Use current browser location">
+            <span>📍 My Location</span>
+          </button>
+          <button id="searchBtn" class="weather-search-btn">
+            <span>Search</span>
+            <span>→</span>
+          </button>
+        </div>
+
+        <!-- Provider Direct Targeting Toggle -->
+        <div class="provider-toggle-bar">
+          <span style="font-size: 12px; color: #71717a; margin-right: 4px;">Provider Mode:</span>
+          <button class="provider-btn active" data-provider="">⚡ Auto (Cascade)</button>
+          <button class="provider-btn" data-provider="openmeteo">Open-Meteo (Public)</button>
+          <button class="provider-btn" data-provider="weatherstack">Weatherstack (APILayer)</button>
+        </div>
+
+        <div class="quick-cities">
+          <span class="city-chip active" data-city="San Francisco">San Francisco</span>
+          <span class="city-chip" data-city="New York">New York</span>
+          <span class="city-chip" data-city="London">London</span>
+          <span class="city-chip" data-city="Tokyo">Tokyo</span>
+          <span class="city-chip" data-city="Paris">Paris</span>
+          <span class="city-chip" data-city="Delhi">Delhi</span>
+          <span class="city-chip" data-city="Sydney">Sydney</span>
+          <span class="city-chip" data-city="Dubai">Dubai</span>
+        </div>
+
+        <!-- Weather Display Card -->
+        <div class="weather-card" id="weatherCard">
+          <div class="weather-card-top">
+            <div>
+              <div class="weather-location" id="locationTitle">San Francisco, US</div>
+              <div class="weather-condition-text" id="conditionText">Clear Sky</div>
+              <div class="weather-temp-huge">
+                <span id="tempVal">18</span>
+                <span class="weather-temp-unit">°C</span>
+              </div>
+            </div>
+            <div class="weather-icon-huge" id="weatherIcon">☀️</div>
+          </div>
+
+          <div class="weather-metrics-grid">
+            <div class="metric-box">
+              <span class="metric-label">Humidity</span>
+              <span class="metric-val" id="humidityVal">65%</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Wind Speed</span>
+              <span class="metric-val" id="windVal">14 km/h</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Pressure</span>
+              <span class="metric-val" id="pressureVal">1013 hPa</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Coordinates</span>
+              <span class="metric-val" id="coordsVal">37.77, -122.41</span>
+            </div>
+          </div>
+
+          <!-- Failover Telemetry Box -->
+          <div class="failover-status-box" id="failoverBox">
+            <div class="failover-title">
+              <span>⚡ OneAPI Failover Pipeline Telemetry</span>
+            </div>
+            <div class="failover-details">
+              <div>Primary: <strong>Open-Meteo Weather</strong></div>
+              <div>Fallback: <strong>Weatherstack (APILayer)</strong></div>
+              <div>Active Provider: <strong id="activeProviderVal" style="color: #38bdf8;">openmeteo</strong></div>
+              <div>Latency: <strong id="latencyVal" style="color: #34d399;">120ms</strong></div>
+              <div>Failover Status: <strong id="failoverStatusVal" style="color: #34d399;">⚡ Direct Primary Call</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="oneapi-sdk.js"></script>
+  <script>
+    const apiKey = localStorage.getItem('oneapi_chat_api_key') || localStorage.getItem('oneapi_latest_raw_developer_api_key') || '';
+    const projectId = localStorage.getItem('oneapi_chat_project_id') || localStorage.getItem('oneapi_project_id') || '';
+
+    // Initialize OneAPI SDK (Gateway endpoint handled automatically)
+    const oneapi = new OneAPI({
+      apiKey,
+      projectId,
+    });
+
+    const cityInput = document.getElementById('cityInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const geoBtn = document.getElementById('geoBtn');
+    const locationTitle = document.getElementById('locationTitle');
+    const conditionText = document.getElementById('conditionText');
+    const tempVal = document.getElementById('tempVal');
+    const weatherIcon = document.getElementById('weatherIcon');
+    const humidityVal = document.getElementById('humidityVal');
+    const windVal = document.getElementById('windVal');
+    const pressureVal = document.getElementById('pressureVal');
+    const coordsVal = document.getElementById('coordsVal');
+    const activeProviderVal = document.getElementById('activeProviderVal');
+    const latencyVal = document.getElementById('latencyVal');
+    const failoverStatusVal = document.getElementById('failoverStatusVal');
+
+    let currentSelectedProvider = '';
+
+    async function fetchWeather(city, coords = null) {
+      searchBtn.textContent = 'Searching...';
+      const startTime = performance.now();
+
+      try {
+        const queryOptions = {
+          provider: currentSelectedProvider || undefined,
+        };
+
+        if (coords) {
+          queryOptions.latitude = coords.latitude;
+          queryOptions.longitude = coords.longitude;
+        } else {
+          queryOptions.city = city;
+        }
+
+        const res = await oneapi.weather.current(queryOptions);
+        const latency = Math.round(performance.now() - startTime);
+
+        const cur = res.current || {};
+        locationTitle.textContent = res.location || city;
+        conditionText.textContent = cur.condition || 'Clear';
+        tempVal.textContent = cur.temperature !== undefined ? Math.round(cur.temperature) : '20';
+        humidityVal.textContent = (cur.humidity !== undefined ? cur.humidity : '60') + '%';
+        windVal.textContent = (cur.windSpeed !== undefined ? cur.windSpeed : '12') + ' km/h';
+        pressureVal.textContent = (cur.pressure !== undefined ? cur.pressure : '1013') + ' hPa';
+
+        const lat = res.coordinates?.lat ?? res.coordinates?.latitude;
+        const lon = res.coordinates?.lon ?? res.coordinates?.longitude;
+        coordsVal.textContent = (lat !== undefined && lon !== undefined)
+          ? `${Number(lat).toFixed(2)}, ${Number(lon).toFixed(2)}`
+          : 'Auto-detected';
+
+        // Visual icon mapping
+        const cond = (cur.condition || '').toLowerCase();
+        if (cond.includes('rain') || cond.includes('drizzle')) weatherIcon.textContent = '🌧️';
+        else if (cond.includes('cloud') || cond.includes('overcast')) weatherIcon.textContent = '⛅';
+        else if (cond.includes('snow')) weatherIcon.textContent = '❄️';
+        else if (cond.includes('storm') || cond.includes('thunder')) weatherIcon.textContent = '⛈️';
+        else if (cond.includes('fog')) weatherIcon.textContent = '🌫️';
+        else weatherIcon.textContent = '☀️';
+
+        // Telemetry
+        const finalProv = res._oneapi?.finalProvider || res.provider || 'openmeteo';
+        const fallback = Boolean(res._oneapi?.fallbackTriggered);
+        activeProviderVal.textContent = finalProv;
+        latencyVal.textContent = latency + 'ms';
+        failoverStatusVal.textContent = fallback ? '🔄 Fallback Provider Active' : '⚡ Direct Primary Call';
+        failoverStatusVal.style.color = fallback ? '#c084fc' : '#34d399';
+      } catch (err) {
+        locationTitle.textContent = 'Error: ' + (err.message || 'Location lookup failed');
+        conditionText.textContent = 'Please verify credentials or try another city';
+      } finally {
+        searchBtn.textContent = 'Search →';
+      }
+    }
+
+    searchBtn.addEventListener('click', () => {
+      const q = cityInput.value.trim();
+      if (q) fetchWeather(q);
+    });
+
+    cityInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const q = cityInput.value.trim();
+        if (q) fetchWeather(q);
+      }
+    });
+
+    // Geolocation button
+    geoBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser.');
+        return;
+      }
+      geoBtn.textContent = '📍 Locating...';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          geoBtn.textContent = '📍 My Location';
+          fetchWeather(null, {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        },
+        (err) => {
+          geoBtn.textContent = '📍 My Location';
+          alert('Unable to retrieve location: ' + err.message);
+        }
+      );
+    });
+
+    // City quick chips
+    document.querySelectorAll('.city-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.city-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        const city = chip.getAttribute('data-city');
+        cityInput.value = city;
+        fetchWeather(city);
+      });
+    });
+
+    // Provider buttons
+    document.querySelectorAll('.provider-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.provider-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSelectedProvider = btn.getAttribute('data-provider');
+        const city = cityInput.value.trim() || 'San Francisco';
+        fetchWeather(city);
+      });
+    });
+
+    // Sidebar toggle
+    document.getElementById('sidebarToggleBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    });
+    document.getElementById('sidebarCloseBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.add('collapsed');
+    });
+
+    // Initial load
+    fetchWeather('San Francisco');
+  </script>
+</body>
+</html>

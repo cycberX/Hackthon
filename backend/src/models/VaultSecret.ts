@@ -4,7 +4,8 @@ export type ProviderCategory = 'ai' | 'music' | 'weather' | 'news' | 'environmen
 
 export interface IVaultSecret extends Document {
   _id: mongoose.Types.ObjectId;
-  projectId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  projectId?: mongoose.Types.ObjectId;
   category: ProviderCategory;
   providerId: string;
   encryptedCombined: string;
@@ -16,10 +17,15 @@ export interface IVaultSecret extends Document {
 
 const VaultSecretSchema = new Schema<IVaultSecret>(
   {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
     projectId: {
       type: Schema.Types.ObjectId,
       ref: 'Project',
-      required: true,
       index: true,
     },
     category: {
@@ -52,7 +58,8 @@ const VaultSecretSchema = new Schema<IVaultSecret>(
   }
 );
 
-// Compound unique index: one key per provider per category per project
-VaultSecretSchema.index({ projectId: 1, category: 1, providerId: 1 }, { unique: true });
+// Compound indexes: one credential per provider per category per project / developer
+VaultSecretSchema.index({ projectId: 1, category: 1, providerId: 1 });
+VaultSecretSchema.index({ userId: 1, category: 1, providerId: 1 });
 
 export const VaultSecret: Model<IVaultSecret> = mongoose.model<IVaultSecret>('VaultSecret', VaultSecretSchema);

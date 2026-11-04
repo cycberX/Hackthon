@@ -3,168 +3,370 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OneAPI Chat — Multi-Provider Proxy AI Assistant</title>
+  <title>OneAPI Chat — ChatGPT-Style Multi-Provider AI Assistant</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="chat-app-layout">
-    <!-- Top Header -->
-    <header class="chat-header">
-      <div class="header-brand">
-        <div class="brand-logo">⚡</div>
-        <div>
-          <div class="brand-title">One<span class="highlight">API</span> Chat</div>
-          <div class="brand-subtitle">Unified Multi-Provider AI Proxy Gateway</div>
+  <div class="chatgpt-container">
+    <!-- LEFT SIDEBAR -->
+    <aside class="chatgpt-sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-header">
+          <div class="brand">
+            <div class="brand-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+              </svg>
+            </div>
+            <span class="brand-name">OneAPI</span>
+          </div>
+          <button id="sidebarCloseBtn" class="icon-btn sm" title="Close sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+          </button>
+        </div>
+
+        <button id="newChatBtn" class="new-chat-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>New chat</span>
+        </button>
+
+        <!-- Navigation Hub to other OneAPI Multi-Category Demos -->
+        <div class="apps-nav">
+          <div class="nav-heading">ONEAPI DEMOS</div>
+          <a href="index.html" class="nav-item active">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">AI Chatbot</span>
+            <span class="pill-live">Live</span>
+          </a>
+          <a href="weather.html" class="nav-item">
+            <span class="nav-icon">⛅</span>
+            <span class="nav-label">Weather Station</span>
+          </a>
+          <a href="music.html" class="nav-item">
+            <span class="nav-icon">🎵</span>
+            <span class="nav-label">Music &amp; Audio</span>
+          </a>
+          <a href="news.html" class="nav-item">
+            <span class="nav-icon">📰</span>
+            <span class="nav-label">News Radar</span>
+          </a>
+          <a href="environment.html" class="nav-item">
+            <span class="nav-icon">🌱</span>
+            <span class="nav-label">Air Quality Monitor</span>
+          </a>
+          <a href="http://localhost:3000/dashboard" target="_blank" class="nav-item external">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Developer Dashboard</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
         </div>
       </div>
 
-      <div class="header-center" id="activeProviderDisplay">
-        <span class="provider-tag primary">⚡ Primary: Gemini (1.5 Flash)</span>
-      </div>
-
-      <div class="header-actions">
-        <!-- Backend Status Indicator -->
-        <div class="server-status-pill">
-          <span class="status-dot offline" id="serverStatusDot"></span>
-          <span id="serverStatusText" class="status-text">Checking...</span>
+      <!-- Chat History -->
+      <div class="sidebar-history">
+        <div class="nav-heading">RECENT CHATS</div>
+        <div id="chatHistoryList" class="history-list">
+          <!-- Populated by app.js -->
         </div>
-
-        <!-- Open Dashboard Link -->
-        <a href="http://localhost:3000/dashboard" target="_blank" class="btn-icon" title="Open OneAPI Developer Dashboard">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="3" y1="9" x2="21" y2="9"></line>
-            <line x1="9" y1="21" x2="9" y2="9"></line>
-          </svg>
-          <span class="btn-label">Dashboard</span>
-        </a>
-
-        <!-- Export Chat -->
-        <button id="exportChatBtn" class="btn-icon" title="Export conversation as JSON">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-        </button>
-
-        <!-- Clear Chat -->
-        <button id="clearChatBtn" class="btn-icon" title="Clear chat history">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          </svg>
-        </button>
-
-        <!-- Configuration Toggle -->
-        <button id="configToggleBtn" class="btn-settings" title="Proxy Gateway Credentials">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-          </svg>
-          <span>Credentials</span>
-        </button>
       </div>
-    </header>
 
-    <!-- Key Status Alert Pill -->
-    <div id="keyStatusBanner" class="key-status-container"></div>
-
-    <!-- Collapsible Credentials Panel -->
-    <div id="configPanel" class="config-panel">
-      <div class="config-content">
-        <div class="config-header">
-          <div class="config-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- User Account & API Key Footer -->
+      <div class="sidebar-footer">
+        <div class="account-pill" id="credentialsPill" title="Configure OneAPI Developer Key">
+          <div class="user-avatar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 2l-2 2m-1.5 1.5L4 19l-2 3 3-2 13.5-13.5m1.5-1.5L22 4"></path>
             </svg>
-            <span>OneAPI Proxy Gateway Credentials</span>
           </div>
-          <button class="btn-close" onclick="document.getElementById('configPanel').classList.remove('open')">✕</button>
-        </div>
-
-        <p class="config-desc">
-          Configure client authentication keys to send queries through the unified proxy URL:
-          <code>POST /api/v1/proxy/ai/chat</code>.
-        </p>
-
-        <div class="config-grid">
-          <div class="config-field">
-            <label for="baseUrlInput">Backend Gateway URL</label>
-            <input type="text" id="baseUrlInput" placeholder="http://localhost:5000">
-            <span class="field-hint">Default local backend server port 5000</span>
+          <div class="account-info">
+            <span class="account-title" id="sidebarKeyDisplay">Developer Key</span>
+            <span class="account-status" id="sidebarKeyStatus">Checking...</span>
           </div>
-
-          <div class="config-field">
-            <label for="projectTokenInput">
-              Project Gateway Token (Recommended)
-              <span class="required-badge">Required</span>
-            </label>
-            <input type="password" id="projectTokenInput" placeholder="oneapi_dev_••••••••••••••••">
-            <span class="field-hint">
-              From <a href="http://localhost:3000/dashboard" target="_blank">Dashboard &gt; Projects</a> tab (e.g. <code>oneapi_dev_...</code>)
-            </span>
-          </div>
-
-          <div class="config-field">
-            <label for="apiKeyInput">Developer API Key (Alternative)</label>
-            <input type="password" id="apiKeyInput" placeholder="oneapi_••••••••••••••••">
-            <span class="field-hint">
-              From <a href="http://localhost:3000/dashboard" target="_blank">Dashboard &gt; API Keys</a> tab
-            </span>
-          </div>
-        </div>
-
-        <div class="vault-info-box">
-          <div class="info-title">🔒 What about third-party provider keys?</div>
-          <div class="info-body">
-            Provider credentials (such as Google Gemini and Groq) are <strong>never stored in this browser app</strong>.
-            They are stored securely in your project's AES-256-GCM encrypted vault via the
-            <a href="http://localhost:3000/dashboard" target="_blank">OneAPI Dashboard &gt; API Providers</a> tab.
-            The OneAPI gateway handles failover, rate limiting, and decryption on the server.
-          </div>
-        </div>
-
-        <div class="config-footer">
-          <button id="saveConfigBtn" class="btn btn-primary">
-            Save &amp; Apply Credentials
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Chat Stream Area -->
-    <main class="chat-main">
-      <div id="chatStream" class="chat-stream">
-        <!-- Rendered dynamically by app.js -->
-      </div>
-    </main>
-
-    <!-- Chat Input Area -->
-    <footer class="chat-footer">
-      <div class="chat-input-container">
-        <form id="chatForm" class="chat-form">
-          <textarea
-            id="userInput"
-            rows="1"
-            placeholder="Ask anything... (e.g. 'Explain how OneAPI failover protects my app')"
-            required
-          ></textarea>
-          <button type="submit" id="sendBtn" class="btn-send" title="Send message (Enter)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          <button class="icon-btn xs" title="Configure Credentials">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
           </button>
-        </form>
-        <div class="input-helper">
-          <span>Press <strong>Enter</strong> to send &bull; <strong>Shift + Enter</strong> for new line</span>
-          <span class="proxy-tag">Unified Gateway Proxy: <code>/api/v1/proxy/ai/chat</code></span>
         </div>
       </div>
-    </footer>
+    </aside>
+
+    <!-- MAIN CHAT AREA -->
+    <main class="chatgpt-main">
+      <!-- TOP NAV -->
+      <header class="chatgpt-nav">
+        <div class="nav-left">
+          <button id="sidebarToggleBtn" class="icon-btn" title="Toggle sidebar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+
+          <!-- ChatGPT-Style Model Selector Dropdown -->
+          <div class="model-selector-wrapper">
+            <button id="modelDropdownBtn" class="model-dropdown-btn">
+              <span class="model-icon">⚡</span>
+              <span class="model-name" id="currentModelName">OneAPI Auto-Failover</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            <div class="model-dropdown-menu" id="modelDropdownMenu">
+              <div class="model-dropdown-header">ROUTING STRATEGY</div>
+              <button class="model-option active" data-provider="auto" data-model="auto">
+                <div class="opt-left">
+                  <span class="opt-icon">⚡</span>
+                  <div>
+                    <div class="opt-title">Auto-Failover Matrix</div>
+                    <div class="opt-desc">Primary: Gemini &bull; Fallback: Groq / OpenRouter</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Recommended</span>
+              </button>
+
+              <div class="model-dropdown-header">GOOGLE GEMINI</div>
+              <button class="model-option" data-provider="gemini" data-model="gemini-2.5-flash">
+                <div class="opt-left">
+                  <span class="opt-icon">⚡</span>
+                  <div>
+                    <div class="opt-title">Gemini 2.5 Flash</div>
+                    <div class="opt-desc">Sub-second latency &bull; Multimodal workhorse</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Default</span>
+              </button>
+              <button class="model-option" data-provider="gemini" data-model="gemini-2.5-pro">
+                <div class="opt-left">
+                  <span class="opt-icon">🧠</span>
+                  <div>
+                    <div class="opt-title">Gemini 2.5 Pro</div>
+                    <div class="opt-desc">Deep reasoning, complex coding &amp; STEM</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Pro</span>
+              </button>
+              <button class="model-option" data-provider="gemini" data-model="gemini-2.5-flash-lite">
+                <div class="opt-left">
+                  <span class="opt-icon">💨</span>
+                  <div>
+                    <div class="opt-title">Gemini 2.5 Flash Lite</div>
+                    <div class="opt-desc">Ultra-lightweight high-throughput inference</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Lite</span>
+              </button>
+              <button class="model-option" data-provider="gemini" data-model="gemini-1.5-flash">
+                <div class="opt-left">
+                  <span class="opt-icon">🌐</span>
+                  <div>
+                    <div class="opt-title">Gemini 1.5 Flash</div>
+                    <div class="opt-desc">Stable long-context multimodal model</div>
+                  </div>
+                </div>
+              </button>
+              <button class="model-option" data-provider="gemini" data-model="gemini-3.5-flash-lite">
+                <div class="opt-left">
+                  <span class="opt-icon">🔬</span>
+                  <div>
+                    <div class="opt-title">Gemini 3.5 Flash Lite (Preview)</div>
+                    <div class="opt-desc">Experimental next-gen preview candidate</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Preview</span>
+              </button>
+
+              <div class="model-dropdown-header">GROQ CLOUD (LPU ENGINE)</div>
+              <button class="model-option" data-provider="groq" data-model="llama-3.3-70b-versatile">
+                <div class="opt-left">
+                  <span class="opt-icon">🚀</span>
+                  <div>
+                    <div class="opt-title">Llama 3.3 70B Versatile</div>
+                    <div class="opt-desc">Ultra-fast Groq LPU inference engine</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Default</span>
+              </button>
+              <button class="model-option" data-provider="groq" data-model="llama-3.1-8b-instant">
+                <div class="opt-left">
+                  <span class="opt-icon">⚡</span>
+                  <div>
+                    <div class="opt-title">Llama 3.1 8B Instant</div>
+                    <div class="opt-desc">Sub-100ms ultra-low latency response</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Instant</span>
+              </button>
+              <button class="model-option" data-provider="groq" data-model="mixtral-8x7b-32768">
+                <div class="opt-left">
+                  <span class="opt-icon">🔀</span>
+                  <div>
+                    <div class="opt-title">Mixtral 8x7B MoE</div>
+                    <div class="opt-desc">High-speed mixture-of-experts model</div>
+                  </div>
+                </div>
+              </button>
+
+              <div class="model-dropdown-header">OPENROUTER MULTI-MODEL</div>
+              <button class="model-option" data-provider="openrouter" data-model="meta-llama/llama-3.3-70b-instruct">
+                <div class="opt-left">
+                  <span class="opt-icon">🦙</span>
+                  <div>
+                    <div class="opt-title">Llama 3.3 70B Instruct</div>
+                    <div class="opt-desc">Direct call via OpenRouter global network</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Default</span>
+              </button>
+              <button class="model-option" data-provider="openrouter" data-model="anthropic/claude-3.5-sonnet">
+                <div class="opt-left">
+                  <span class="opt-icon">🎭</span>
+                  <div>
+                    <div class="opt-title">Claude 3.5 Sonnet</div>
+                    <div class="opt-desc">State-of-the-art coding &amp; instruction following</div>
+                  </div>
+                </div>
+                <span class="opt-badge">Claude</span>
+              </button>
+              <button class="model-option" data-provider="openrouter" data-model="deepseek/deepseek-chat">
+                <div class="opt-left">
+                  <span class="opt-icon">🐋</span>
+                  <div>
+                    <div class="opt-title">DeepSeek V3 Chat</div>
+                    <div class="opt-desc">Advanced reasoning &amp; knowledge retrieval</div>
+                  </div>
+                </div>
+                <span class="opt-badge">DeepSeek</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-right">
+          <!-- Gateway Status Pill -->
+          <div class="gateway-pill" id="gatewayStatusPill" title="Gateway connection status">
+            <span class="status-circle" id="statusCircle"></span>
+            <span class="status-label" id="statusLabel">Checking gateway...</span>
+          </div>
+
+          <button id="clearChatBtn" class="icon-btn" title="Clear current chat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+
+          <button id="configModalTrigger" class="icon-btn" title="Gateway Credentials">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 2l-2 2m-1.5 1.5L4 19l-2 3 3-2 13.5-13.5m1.5-1.5L22 4"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- CHAT STREAM AREA -->
+      <div class="chatgpt-stream" id="chatStream">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+
+      <!-- BOTTOM INPUT CAPSULE -->
+      <div class="chatgpt-input-wrapper">
+        <div class="input-capsule">
+          <form id="chatForm" class="input-form">
+            <textarea
+              id="userInput"
+              rows="1"
+              placeholder="Message OneAPI ChatGPT..."
+              required
+            ></textarea>
+
+            <div class="input-actions">
+              <div class="input-hints">
+                <span class="active-engine-chip" id="activeEngineChip">Auto Failover</span>
+              </div>
+              <button type="submit" id="sendBtn" class="send-btn" disabled title="Send prompt (Enter)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="chatgpt-disclaimer">
+          OneAPI Gateway automatically routes across Gemini, Groq, and OpenRouter with zero-downtime failover.
+        </div>
+      </div>
+    </main>
   </div>
 
+  <!-- CREDENTIALS MODAL -->
+  <div class="modal-backdrop" id="credentialsModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 2l-2 2m-1.5 1.5L4 19l-2 3 3-2 13.5-13.5m1.5-1.5L22 4"></path>
+          </svg>
+          <span>OneAPI Gateway Credentials</span>
+        </div>
+        <button id="modalCloseBtn" class="icon-btn sm">✕</button>
+      </div>
+
+      <p class="modal-desc">
+        Configure your developer authentication token to access the proxy gateway (<code>/api/v1/proxy/ai/chat</code>).
+      </p>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="projectIdInput">Project ID (Optional)</label>
+          <input type="text" id="projectIdInput" placeholder="Leave empty for default project" />
+          <span class="input-tip">Scoped project configuration for provider vault & routing</span>
+        </div>
+
+        <div class="form-group">
+          <label for="apiKeyInput">Developer API Key (sk_live_...)</label>
+          <div class="input-with-action">
+            <input type="password" id="apiKeyInput" placeholder="sk_live_••••••••••••••••••••••••" />
+            <button type="button" id="toggleApiKeyVisibility" class="icon-btn xs" title="Show/Hide">👁️</button>
+          </div>
+          <span class="input-tip">
+            Copy from your <a href="http://localhost:3000/dashboard/keys" target="_blank">Dashboard &gt; API Keys</a>
+          </span>
+        </div>
+
+        <div class="vault-notice">
+          <div class="vault-notice-title">🔒 AES-256 Vault Protection</div>
+          <p class="vault-notice-text">
+            Provider keys (Gemini, Groq, OpenRouter) are <strong>never stored in client JavaScript</strong>. They remain encrypted inside your server vault.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="saveCredentialsBtn" class="btn-primary">Apply Credentials</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

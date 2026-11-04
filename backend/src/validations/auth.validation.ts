@@ -52,6 +52,8 @@ export const resetPasswordSchema = z.object({
 export const createApiKeySchema = z.object({
   name: z.string().trim().min(2, 'API key name must be at least 2 characters').max(50, 'API key name cannot exceed 50 characters'),
   expiresInDays: z.number().int().positive().max(365).optional(),
+  projectId: z.string().optional(),
+  scopes: z.array(z.string()).optional(),
 });
 
 export const updateApiKeySchema = z.object({

@@ -5,14 +5,25 @@ export class OpenRouterAiAdapter implements IProviderAdapter<UnifiedAiRequest, U
   public readonly category = 'ai' as const;
   public readonly displayName = 'OpenRouter (Unified AI Models)';
   public readonly isKeyRequired = true;
+  public readonly defaultModel = 'meta-llama/llama-3.3-70b-instruct';
+  public readonly supportedModels = [
+    'meta-llama/llama-3.3-70b-instruct',
+    'google/gemini-2.5-flash',
+    'deepseek/deepseek-chat',
+    'anthropic/claude-3.5-sonnet',
+    'openai/gpt-4o',
+    'openai/gpt-4o-mini',
+  ];
 
   public async execute(params: UnifiedAiRequest, config: ProviderConfig): Promise<UnifiedAiResponse> {
     const apiKey = config.apiKey || process.env.OPENROUTER_API_KEY;
-    const model = params.model && params.model !== 'default' ? params.model : 'openai/gpt-4o-mini';
+    const model = params.model && params.model !== 'default' && params.model !== 'auto'
+      ? params.model
+      : (config.metadata?.model || this.defaultModel);
 
     if (!apiKey) {
       const err = new Error('OpenRouter API key is required. Please add your OpenRouter API key to the project vault or set OPENROUTER_API_KEY.');
-      (err as any).statusCode = 503;
+      (err as any).statusCode = 401;
       throw err;
     }
 
@@ -45,21 +56,35 @@ export class OpenRouterAiAdapter implements IProviderAdapter<UnifiedAiRequest, U
       }
 
       const data = (await response.json()) as any;
+      const promptTokens = data.usage?.prompt_tokens ?? 0;
+      const completionTokens = data.usage?.completion_tokens ?? 0;
+      const totalTokens = data.usage?.total_tokens ?? (promptTokens + completionTokens);
+
       return {
-        choices: (data.choices || []).map((c: any) => ({
-          index: c.index ?? 0,
-          message: {
-            role: c.message?.role || 'assistant',
-            content: c.message?.content || '',
-          },
-          finishReason: c.finish_reason || 'stop',
-        })),
+        id: data.id || `chatcmpl-openrouter-${Date.now()}`,
+        object: data.object || 'chat.completion',
+        created: data.created || Math.floor(Date.now() / 1000),
+        choices: (data.choices || []).map((c: any) => {
+          const finish = c.finish_reason || 'stop';
+          return {
+            index: c.index ?? 0,
+            message: {
+              role: c.message?.role || 'assistant',
+              content: c.message?.content || '',
+            },
+            finishReason: finish,
+            finish_reason: finish,
+          };
+        }),
         model: data.model || model,
         provider: this.id,
         usage: {
-          promptTokens: data.usage?.prompt_tokens,
-          completionTokens: data.usage?.completion_tokens,
-          totalTokens: data.usage?.total_tokens,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: totalTokens,
         },
       };
     } finally {

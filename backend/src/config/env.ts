@@ -8,9 +8,15 @@ const __dirname = path.dirname(__filename);
 // Load .env from backend root
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+const port = parseInt(process.env.PORT || '5000', 10);
+const baseUrl = process.env.BASE_URL || process.env.API_BASE_URL?.replace(/\/api\/v1\/?$/, '') || `http://localhost:${port}`;
+
 export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: parseInt(process.env.PORT || '5000', 10),
+  PORT: port,
+  BASE_URL: baseUrl,
+  API_BASE_URL: process.env.API_BASE_URL || `${baseUrl}/api/v1`,
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/hack_vsak',
   JWT_SECRET: process.env.JWT_SECRET || '58d3cfefba0798c8d9f3d554eb3be5d91366d408c504e6fb9114954dc89cae1e9ce37e132eba3f052830bac2b7a19a94',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1d',

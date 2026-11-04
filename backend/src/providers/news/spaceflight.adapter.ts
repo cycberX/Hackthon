@@ -8,37 +8,42 @@ export class SpaceflightNewsAdapter implements IProviderAdapter<UnifiedNewsReque
 
   public async execute(params: UnifiedNewsRequest, config: ProviderConfig): Promise<UnifiedNewsResponse> {
     const limit = params.limit || 10;
-    const search = params.query ? encodeURIComponent(params.query) : '';
+    const query = params.query || '';
+    const search = query ? encodeURIComponent(query) : '';
     const url = `https://api.spaceflightnewsapi.net/v4/articles/?limit=${limit}${search ? `&search=${search}` : ''}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), config.timeoutMs || 5000);
+    const timeout = setTimeout(() => controller.abort(), config.timeoutMs || 8000);
 
     try {
       const response = await fetch(url, { signal: controller.signal });
       if (!response.ok) {
-        const err = new Error(`Spaceflight News API error: ${response.status}`);
+        const err = new Error(`Spaceflight News API upstream error: ${response.status}`);
         (err as any).statusCode = response.status;
         throw err;
       }
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
       const results = data.results || [];
 
       const articles = results.map((r: any) => ({
         id: String(r.id),
-        title: r.title || 'Untitled',
-        description: r.summary || '',
+        title: String(r.title || 'Untitled'),
+        description: String(r.summary || ''),
+        snippet: String(r.summary || ''),
         url: r.url,
         source: r.news_site || 'Spaceflight News',
+        author: r.news_site || 'Spaceflight News',
         publishedAt: r.published_at || new Date().toISOString(),
         imageUrl: r.image_url,
+        provider: this.id,
       }));
 
       return {
+        query,
+        total: Number(data.count || articles.length),
         articles,
         provider: this.id,
-        total: data.count || articles.length,
       };
     } finally {
       clearTimeout(timeout);

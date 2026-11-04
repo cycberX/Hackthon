@@ -17,6 +17,8 @@ import {
   revokeApiKey,
   validateApiKeyHandler,
   changePassword,
+  updateProfile,
+  deleteAccount,
 } from '../controllers/auth.controller.js';
 import { validateBody } from '../middleware/validate.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -306,6 +308,10 @@ router.get(
  * ---------------------------------------------------------------------------
  */
 router.get('/me', authenticate, getMe);
+router.put('/profile', authenticate, updateProfile);
+router.patch('/profile', authenticate, updateProfile);
+router.delete('/account', authenticate, deleteAccount);
+router.delete('/me', authenticate, deleteAccount);
 router.post('/change-password', authenticate, changePassword);
 router.post('/logout', authenticate, logout);
 router.get('/logout', authenticate, logout);

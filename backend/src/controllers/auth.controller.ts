@@ -1,8 +1,14 @@
 import type { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { User } from '../models/User.js';
+import { ApiKey } from '../models/ApiKey.js';
+import { Project, getOrCreateDefaultProject } from '../models/Project.js';
+import { VaultSecret } from '../models/VaultSecret.js';
+import { RoutingRule } from '../models/RoutingRule.js';
+import { GatewayLog } from '../models/GatewayLog.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { generateNumericOtp, hashToken, generateApiKey, safeCompare } from '../utils/crypto.js';
+import { encryptSecret, decryptSecret } from '../utils/vaultCrypto.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/tokens.js';
 import { mailService } from '../services/mail.service.js';
 import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
@@ -633,37 +639,85 @@ export async function createApiKeyHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { name, expiresInDays } = req.body;
+    const { name, expiresInDays, scopes, projectId } = req.body;
     const user = req.user!;
     const ipAddress = getClientIp(req);
     const userAgent = getClientUserAgent(req);
 
+    // Resolve projectId: body, header, query, or fallback to user's default project
+    const rawProjectId = projectId || (req.headers['x-project-id'] as string) || (req.query.projectId as string);
+    let resolvedProjectId: mongoose.Types.ObjectId;
+
+    if (rawProjectId && rawProjectId !== 'default') {
+      if (!mongoose.Types.ObjectId.isValid(rawProjectId)) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_PROJECT_ID',
+            message: `The provided projectId "${rawProjectId}" is not a valid 24-character identifier.`,
+          },
+        });
+        return;
+      }
+
+      const project = await Project.findOne({
+        _id: new mongoose.Types.ObjectId(rawProjectId),
+        userId: user._id,
+      });
+
+      if (!project) {
+        res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN_PROJECT_ACCESS',
+            message: 'Access denied: The requested project does not exist or does not belong to the authenticated user.',
+          },
+        });
+        return;
+      }
+      resolvedProjectId = project._id;
+    } else {
+      const defaultProj = await getOrCreateDefaultProject(user._id);
+      resolvedProjectId = defaultProj._id;
+    }
+
     const { rawKey, keyPrefix, keyHash } = generateApiKey();
+    const encryptedKey = encryptSecret(rawKey).combined;
 
     const expiresAt = expiresInDays
       ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
       : undefined;
 
-    const newKey = {
-      _id: undefined as any,
-      name,
+    // 1. Create document in dedicated ApiKey model
+    const apiKeyDoc = await ApiKey.create({
+      userId: user._id,
+      projectId: resolvedProjectId,
+      name: name?.trim() || 'Production Key',
       keyPrefix,
       keyHash,
+      encryptedKey,
+      scopes: Array.isArray(scopes) && scopes.length > 0 ? scopes : ['read', 'write', 'proxy'],
       isActive: true,
       expiresAt,
-      createdAt: new Date(),
-    };
+    });
 
-    user.apiKeys.push(newKey);
+    // 2. Also keep user.apiKeys synchronized for backward compatibility
+    user.apiKeys.push({
+      _id: apiKeyDoc._id,
+      name: apiKeyDoc.name,
+      keyPrefix,
+      keyHash,
+      encryptedKey,
+      isActive: true,
+      expiresAt,
+      createdAt: apiKeyDoc.createdAt,
+    } as any);
     await user.save();
-
-    // Get the newly pushed key document with its generated _id
-    const createdKeyDoc = user.apiKeys[user.apiKeys.length - 1];
 
     // Send API Key Created Email notification
     await mailService.sendApiKeyCreated(user.email, {
       name: user.name,
-      keyName: name,
+      keyName: apiKeyDoc.name,
       keyPrefix,
       timestamp: new Date().toUTCString(),
       ipAddress,
@@ -676,7 +730,7 @@ export async function createApiKeyHandler(
       ipAddress,
       userAgent,
       status: 'SUCCESS',
-      details: { keyId: createdKeyDoc._id, keyName: name, keyPrefix, user_id: user.user_id },
+      details: { keyId: apiKeyDoc._id, keyName: apiKeyDoc.name, keyPrefix, user_id: user.user_id, projectId: resolvedProjectId },
     });
 
     res.status(201).json({
@@ -684,14 +738,18 @@ export async function createApiKeyHandler(
       message: 'API key successfully created. Make sure to copy your secret key now; it cannot be shown again!',
       data: {
         apiKey: rawKey,
-        keyId: createdKeyDoc._id,
+        rawApiKey: rawKey,
+        fullKey: rawKey,
+        keyId: apiKeyDoc._id,
+        projectId: resolvedProjectId,
         keyPrefix,
-        name,
+        name: apiKeyDoc.name,
+        scopes: apiKeyDoc.scopes,
         isActive: true,
         expiresAt,
         user_id: user.user_id,
         email: user.email,
-        createdAt: createdKeyDoc.createdAt,
+        createdAt: apiKeyDoc.createdAt,
       },
     });
   } catch (err: any) {
@@ -706,12 +764,81 @@ export async function createApiKeyHandler(
 export async function listApiKeys(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const user = req.user!;
+    const rawProjectId = (req.query.projectId as string) || (req.headers['x-project-id'] as string);
+
+    const filter: Record<string, any> = { userId: user._id };
+    if (rawProjectId && rawProjectId !== 'all') {
+      if (mongoose.Types.ObjectId.isValid(rawProjectId)) {
+        const projId = new mongoose.Types.ObjectId(rawProjectId);
+        const projectDoc = await Project.findOne({ _id: projId, userId: user._id });
+        if (projectDoc?.isDefault) {
+          filter.$or = [{ projectId: projId }, { projectId: { $exists: false } }, { projectId: null }];
+        } else {
+          filter.projectId = projId;
+        }
+      }
+    }
+
+    // 1. Query dedicated ApiKey model
+    let dbKeys = await ApiKey.find(filter)
+      .select('+encryptedKey')
+      .sort({ createdAt: -1 });
+
+    // 2. Auto-migration check: If ApiKey model is empty but legacy user.apiKeys has items, migrate them
+    if (dbKeys.length === 0 && (!rawProjectId || rawProjectId === 'all') && user.apiKeys && user.apiKeys.length > 0) {
+      const defaultProj = await getOrCreateDefaultProject(user._id);
+      const fullUser = await User.findById(user._id).select('+apiKeys.encryptedKey +apiKeys.keyHash');
+      if (fullUser?.apiKeys && fullUser.apiKeys.length > 0) {
+        for (const legacyKey of fullUser.apiKeys) {
+          try {
+            const created = await ApiKey.create({
+              userId: user._id,
+              projectId: defaultProj._id,
+              name: legacyKey.name,
+              keyPrefix: legacyKey.keyPrefix,
+              keyHash: legacyKey.keyHash,
+              encryptedKey: legacyKey.encryptedKey,
+              isActive: legacyKey.isActive !== false,
+              expiresAt: legacyKey.expiresAt,
+              createdAt: legacyKey.createdAt || new Date(),
+            });
+            dbKeys.push(created as any);
+          } catch {
+            // ignore duplicate errors during migration
+          }
+        }
+      }
+    }
+
+    const keys = dbKeys.map((k: any) => {
+      let fullKey = undefined;
+      if (k.encryptedKey) {
+        try {
+          fullKey = decryptSecret(k.encryptedKey);
+        } catch {
+          fullKey = undefined;
+        }
+      }
+      return {
+        _id: k._id,
+        projectId: k.projectId,
+        name: k.name,
+        keyPrefix: k.keyPrefix,
+        fullKey: fullKey || k.keyPrefix,
+        scopes: k.scopes || ['read', 'write', 'proxy'],
+        isActive: k.isActive,
+        expiresAt: k.expiresAt,
+        lastUsedAt: k.lastUsedAt,
+        createdAt: k.createdAt,
+      };
+    });
+
     res.status(200).json({
       success: true,
       data: {
         user_id: user.user_id,
         email: user.email,
-        apiKeys: user.apiKeys || [],
+        apiKeys: keys,
       },
     });
   } catch (err: any) {
@@ -728,8 +855,17 @@ export async function getApiKeyById(req: AuthenticatedRequest, res: Response, ne
     const { keyId } = req.params;
     const user = req.user!;
 
-    const key = user.apiKeys.find((k) => k._id.toString() === keyId);
-    if (!key) {
+    let keyDoc = await ApiKey.findOne({ _id: keyId, userId: user._id }).select('+encryptedKey');
+    if (!keyDoc) {
+      // Fallback check in legacy array
+      const fullUser = await User.findById(user._id).select('+apiKeys.encryptedKey');
+      const legacyKey = fullUser?.apiKeys.find((k: any) => k._id.toString() === keyId);
+      if (legacyKey) {
+        keyDoc = legacyKey as any;
+      }
+    }
+
+    if (!keyDoc) {
       res.status(404).json({
         success: false,
         error: {
@@ -740,10 +876,30 @@ export async function getApiKeyById(req: AuthenticatedRequest, res: Response, ne
       return;
     }
 
+    let fullKey = undefined;
+    if (keyDoc.encryptedKey) {
+      try {
+        fullKey = decryptSecret(keyDoc.encryptedKey);
+      } catch {
+        fullKey = undefined;
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
-        apiKey: key,
+        apiKey: {
+          _id: keyDoc._id,
+          projectId: (keyDoc as any).projectId,
+          name: keyDoc.name,
+          keyPrefix: keyDoc.keyPrefix,
+          fullKey: fullKey || keyDoc.keyPrefix,
+          scopes: (keyDoc as any).scopes || ['read', 'write', 'proxy'],
+          isActive: keyDoc.isActive,
+          expiresAt: keyDoc.expiresAt,
+          lastUsedAt: keyDoc.lastUsedAt,
+          createdAt: keyDoc.createdAt,
+        },
       },
     });
   } catch (err: any) {
@@ -761,8 +917,25 @@ export async function updateApiKey(req: AuthenticatedRequest, res: Response, nex
     const { name, isActive } = req.body;
     const user = req.user!;
 
-    const key = user.apiKeys.find((k) => k._id.toString() === keyId);
-    if (!key) {
+    // 1. Update in dedicated ApiKey model
+    const updatedKeyDoc = await ApiKey.findOneAndUpdate(
+      { _id: keyId, userId: user._id },
+      {
+        ...(name !== undefined && { name: name.trim() }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      { new: true }
+    );
+
+    // 2. Also update in user.apiKeys legacy array if present
+    const legacyKey = user.apiKeys.find((k) => k._id.toString() === keyId);
+    if (legacyKey) {
+      if (name !== undefined) legacyKey.name = name.trim();
+      if (isActive !== undefined) legacyKey.isActive = isActive;
+      await user.save();
+    }
+
+    if (!updatedKeyDoc && !legacyKey) {
       res.status(404).json({
         success: false,
         error: {
@@ -772,11 +945,6 @@ export async function updateApiKey(req: AuthenticatedRequest, res: Response, nex
       });
       return;
     }
-
-    if (name !== undefined) key.name = name;
-    if (isActive !== undefined) key.isActive = isActive;
-
-    await user.save();
 
     await AuditLog.create({
       action: 'API_KEY_UPDATED',
@@ -792,7 +960,7 @@ export async function updateApiKey(req: AuthenticatedRequest, res: Response, nex
       success: true,
       message: 'API key successfully updated.',
       data: {
-        apiKey: key,
+        apiKey: updatedKeyDoc || legacyKey,
       },
     });
   } catch (err: any) {
@@ -813,10 +981,17 @@ export async function revokeApiKey(
     const { keyId } = req.params;
     const user = req.user!;
 
+    // 1. Delete from dedicated ApiKey model
+    const deletedDoc = await ApiKey.findOneAndDelete({ _id: keyId, userId: user._id });
+
+    // 2. Also remove from legacy user.apiKeys array
     const initialLength = user.apiKeys.length;
     user.apiKeys = user.apiKeys.filter((key) => key._id.toString() !== keyId);
+    if (user.apiKeys.length !== initialLength) {
+      await user.save();
+    }
 
-    if (user.apiKeys.length === initialLength) {
+    if (!deletedDoc && user.apiKeys.length === initialLength) {
       res.status(404).json({
         success: false,
         error: {
@@ -826,8 +1001,6 @@ export async function revokeApiKey(
       });
       return;
     }
-
-    await user.save();
 
     await AuditLog.create({
       action: 'API_KEY_REVOKED',
@@ -860,7 +1033,95 @@ export async function validateApiKeyHandler(req: Request, res: Response, next: N
     const ipAddress = getClientIp(req);
     const userAgent = getClientUserAgent(req);
 
-    const query: Record<string, any> = { email: email.toLowerCase() };
+    if (!apiKey) {
+      res.status(400).json({
+        success: false,
+        valid: false,
+        error: {
+          code: 'MISSING_API_KEY',
+          message: 'The apiKey parameter is required for validation.',
+        },
+      });
+      return;
+    }
+
+    const hashedInput = hashToken(apiKey);
+
+    // 1. Check dedicated ApiKey collection first
+    const keyDoc = await ApiKey.findOne({ keyHash: hashedInput }).select('+keyHash').populate('userId');
+    if (keyDoc && keyDoc.userId) {
+      const userDoc = keyDoc.userId as any;
+      const matchesEmail = !email || userDoc.email.toLowerCase() === email.toLowerCase();
+      const matchesId = !targetUserId || userDoc.user_id === targetUserId || userDoc._id.toString() === targetUserId;
+
+      if (!matchesEmail || !matchesId) {
+        res.status(401).json({
+          success: false,
+          valid: false,
+          error: {
+            code: 'USER_MISMATCH',
+            message: 'No account matches the provided user ID and email.',
+          },
+        });
+        return;
+      }
+
+      if (!keyDoc.isActive) {
+        res.status(403).json({
+          success: false,
+          valid: false,
+          error: {
+            code: 'API_KEY_DEACTIVATED',
+            message: 'This API key has been deactivated.',
+          },
+        });
+        return;
+      }
+
+      if (keyDoc.expiresAt && keyDoc.expiresAt < new Date()) {
+        res.status(403).json({
+          success: false,
+          valid: false,
+          error: {
+            code: 'API_KEY_EXPIRED',
+            message: 'This API key has expired.',
+          },
+        });
+        return;
+      }
+
+      // Update lastUsedAt asynchronously
+      ApiKey.updateOne({ _id: keyDoc._id }, { $set: { lastUsedAt: new Date() } }).catch(() => {});
+
+      await AuditLog.create({
+        action: 'API_KEY_VALIDATED',
+        userId: userDoc._id,
+        userEmail: userDoc.email,
+        ipAddress,
+        userAgent,
+        status: 'SUCCESS',
+        details: { keyId: keyDoc._id, keyPrefix: keyDoc.keyPrefix },
+      });
+
+      res.status(200).json({
+        success: true,
+        valid: true,
+        message: 'API key is valid and active.',
+        data: {
+          keyId: keyDoc._id,
+          keyPrefix: keyDoc.keyPrefix,
+          name: keyDoc.name,
+          scopes: keyDoc.scopes,
+          userId: userDoc.user_id,
+          email: userDoc.email,
+        },
+      });
+      return;
+    }
+
+    // 2. Legacy fallback check
+    const query: Record<string, any> = {};
+    if (email) query.email = email.toLowerCase();
     if (typeof targetUserId === 'string' && targetUserId.startsWith('usr_')) {
       query.user_id = targetUserId;
     } else if (typeof targetUserId === 'string' && mongoose.Types.ObjectId.isValid(targetUserId)) {
@@ -882,9 +1143,7 @@ export async function validateApiKeyHandler(req: Request, res: Response, next: N
       return;
     }
 
-    const hashedInput = hashToken(apiKey);
     const key = user.apiKeys.find((k) => safeCompare(k.keyHash, hashedInput));
-
     if (!key) {
       res.status(401).json({
         success: false,
@@ -921,9 +1180,11 @@ export async function validateApiKeyHandler(req: Request, res: Response, next: N
       return;
     }
 
-    // Update lastUsedAt
-    key.lastUsedAt = new Date();
-    await user.save();
+    // Update lastUsedAt on legacy key
+    User.updateOne(
+      { _id: user._id, 'apiKeys._id': key._id },
+      { $set: { 'apiKeys.$.lastUsedAt': new Date() } }
+    ).catch(() => {});
 
     await AuditLog.create({
       action: 'API_KEY_VALIDATED',
@@ -932,22 +1193,19 @@ export async function validateApiKeyHandler(req: Request, res: Response, next: N
       ipAddress,
       userAgent,
       status: 'SUCCESS',
-      details: { keyId: key._id, keyName: key.name, user_id: user.user_id },
+      details: { keyId: key._id, keyPrefix: key.keyPrefix },
     });
 
     res.status(200).json({
       success: true,
       valid: true,
-      message: 'API key is valid and authorized.',
+      message: 'API key is valid and active.',
       data: {
-        user_id: user.user_id,
-        name: user.name,
-        email: user.email,
-        phone_no: user.phone_no,
         keyId: key._id,
-        keyName: key.name,
         keyPrefix: key.keyPrefix,
-        status: 'ACTIVE',
+        name: key.name,
+        userId: user.user_id,
+        email: user.email,
       },
     });
   } catch (err: any) {
@@ -1018,6 +1276,93 @@ export async function changePassword(
     res.status(200).json({
       success: true,
       message: 'Password successfully updated.',
+    });
+  } catch (err: any) {
+    next(err);
+  }
+}
+
+/**
+ * 15. Update Profile for Authenticated User
+ * PUT /api/v1/auth/profile
+ * Allows updating name and phone_no. Email is strictly read-only.
+ */
+export async function updateProfile(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = req.user!;
+    const { name, phone_no } = req.body;
+
+    if (name && typeof name === 'string') {
+      user.name = name.trim();
+    }
+    if (phone_no && typeof phone_no === 'string') {
+      user.phone_no = phone_no.trim();
+    }
+
+    await user.save();
+
+    await AuditLog.create({
+      action: 'PROFILE_UPDATED',
+      userId: user._id,
+      userEmail: user.email,
+      ipAddress: req.ip || '',
+      userAgent: (req.headers['user-agent'] as string) || '',
+      status: 'SUCCESS',
+      details: { name: user.name, phone_no: user.phone_no },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+      data: {
+        user: {
+          id: user._id,
+          user_id: user.user_id,
+          name: user.name,
+          email: user.email,
+          phone_no: user.phone_no,
+          role: user.role,
+          isVerified: user.isVerified,
+        },
+      },
+    });
+  } catch (err: any) {
+    next(err);
+  }
+}
+
+/**
+ * 16. Delete User Account with Complete Cascade
+ * DELETE /api/v1/auth/account
+ * Cascades deletion across all projects, API keys, vault secrets, routing rules, and gateway logs.
+ */
+export async function deleteAccount(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = req.user!;
+    const userId = user._id;
+
+    // Cascade deletion of all user-owned data
+    await Promise.all([
+      Project.deleteMany({ userId }),
+      ApiKey.deleteMany({ userId }),
+      VaultSecret.deleteMany({ userId }),
+      RoutingRule.deleteMany({ userId }),
+      GatewayLog.deleteMany({ userId }),
+      AuditLog.deleteMany({ userId }),
+      User.deleteOne({ _id: userId }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Your account and all associated projects, credentials, and telemetry logs were permanently deleted.',
     });
   } catch (err: any) {
     next(err);

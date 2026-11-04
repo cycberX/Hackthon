@@ -1,33 +1,33 @@
 import { OneAPI } from "../src/index.js";
 
+const oneapi = new OneAPI({
+  apiKey: "demo-token",
+  projectId: "demo-project",
+  baseURL: "http://localhost:5000/api/v1",
+});
+
 async function main() {
-  const oneapi = new OneAPI({
-    apiKey: process.env.ONEAPI_PROJECT_TOKEN || "oneapi_dev_token_sample",
-    projectId: process.env.ONEAPI_PROJECT_ID || "proj_sample",
-    baseURL: process.env.ONEAPI_BASE_URL || "http://localhost:5000/api/v1",
-  });
-
-  console.log("1. Testing AI Chat Proxy with Failover...");
   try {
-    const chat = await oneapi.ai.chat({
-      messages: [{ role: "user", content: "Explain quantum computing in two sentences." }],
-      temperature: 0.7,
+    const response = await oneapi.ai.chat({
+      model: "default",
+      messages: [
+        {
+          role: "user",
+          content: "[MOCK_PRIMARY_FAILURE] Explain AI simply.",
+        },
+      ],
     });
-    console.log("Chat Response:", chat.choices[0]?.message?.content);
-  } catch (err) {
-    console.error("Chat Error:", err.message);
-  }
 
-  console.log("\n2. Testing AI File Upload...");
-  try {
-    const upload = await oneapi.ai.upload_file({
-      file: "Sample document content for assistant context.",
-      purpose: "assistants",
-      filename: "quantum_notes.txt",
-    });
-    console.log("Uploaded File ID:", upload.fileId);
-  } catch (err) {
-    console.error("Upload Error:", err.message);
+    console.log("\n========== ONEAPI RESULT ==========");
+    console.log("Response:", response.content);
+    console.log("Provider:", response.providerUsed);
+    console.log("Fallback used:", response.usedFallback);
+    console.log("Request ID:", response.id);
+    console.log("Token usage:", response.usage);
+    console.log("===================================\n");
+  } catch (error) {
+    console.error("OneAPI Error:", error.message);
+    console.error("Error code:", error.code);
   }
 }
 

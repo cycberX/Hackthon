@@ -7,6 +7,7 @@ export interface IApiKey {
   name: string;
   keyHash: string;
   keyPrefix: string;
+  encryptedKey?: string;
   isActive: boolean;
   expiresAt?: Date;
   createdAt: Date;
@@ -41,6 +42,7 @@ const ApiKeySchema = new Schema<IApiKey>(
     name: { type: String, required: true, trim: true },
     keyHash: { type: String, required: true, select: false },
     keyPrefix: { type: String, required: true },
+    encryptedKey: { type: String, select: false },
     isActive: { type: Boolean, default: true },
     expiresAt: { type: Date },
     lastUsedAt: { type: Date },

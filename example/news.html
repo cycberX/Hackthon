@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OneAPI News Radar &amp; Feed | Multi-Category Gateway Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .news-container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .news-search-bar {
+      display: flex;
+      gap: 10px;
+      background: #18181b;
+      padding: 8px;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    .news-search-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-size: 15px;
+      padding: 10px 16px;
+      font-family: inherit;
+    }
+
+    .news-search-bar input::placeholder {
+      color: #71717a;
+    }
+
+    .news-search-btn {
+      background: #f59e0b;
+      color: #000;
+      font-weight: 700;
+      font-size: 14px;
+      border: none;
+      padding: 0 24px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .news-search-btn:hover {
+      background: #d97706;
+      transform: translateY(-1px);
+    }
+
+    .provider-toggle-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .provider-btn {
+      background: #18181b;
+      color: #a1a1aa;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .provider-btn:hover {
+      background: #27272a;
+      color: #fff;
+    }
+
+    .provider-btn.active {
+      background: #f59e0b;
+      color: #000;
+    }
+
+    .quick-topics {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .topic-chip {
+      background: #18181b;
+      color: #a1a1aa;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .topic-chip:hover {
+      background: #27272a;
+      color: #fff;
+    }
+
+    .topic-chip.active {
+      background: #f59e0b;
+      color: #000;
+    }
+
+    .failover-status-box {
+      background: #18181b;
+      border-radius: 16px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .failover-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .failover-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: #a1a1aa;
+    }
+
+    .articles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 16px;
+    }
+
+    .article-card {
+      background: #18181b;
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .article-card:hover {
+      background: #27272a;
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .article-top {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .article-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .source-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    .article-date {
+      font-size: 12px;
+      color: #71717a;
+    }
+
+    .article-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .article-snippet {
+      font-size: 13px;
+      color: #a1a1aa;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .article-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .article-author {
+      font-size: 12px;
+      color: #71717a;
+      max-width: 140px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .read-link {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fbbf24;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .read-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body class="chatgpt-body">
+  <div class="chatgpt-container">
+    <!-- SIDEBAR -->
+    <aside class="chatgpt-sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-header">
+          <div class="brand">
+            <div class="brand-icon">📰</div>
+            <span class="brand-name">OneAPI</span>
+          </div>
+          <button id="sidebarCloseBtn" class="icon-btn sm" title="Close sidebar">✕</button>
+        </div>
+
+        <div class="apps-nav">
+          <div class="nav-heading">ONEAPI DEMOS</div>
+          <a href="index.html" class="nav-item">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">AI Chatbot</span>
+          </a>
+          <a href="weather.html" class="nav-item">
+            <span class="nav-icon">⛅</span>
+            <span class="nav-label">Weather Station</span>
+          </a>
+          <a href="music.html" class="nav-item">
+            <span class="nav-icon">🎵</span>
+            <span class="nav-label">Music &amp; Audio</span>
+          </a>
+          <a href="news.html" class="nav-item active">
+            <span class="nav-icon">📰</span>
+            <span class="nav-label">News Radar</span>
+            <span class="pill-live">Live</span>
+          </a>
+          <a href="environment.html" class="nav-item">
+            <span class="nav-icon">🌱</span>
+            <span class="nav-label">Air Quality Monitor</span>
+          </a>
+          <a href="http://localhost:3000/dashboard" target="_blank" class="nav-item external">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Developer Dashboard</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="account-pill" id="credentialsPill">
+          <div class="user-avatar" style="color: #fbbf24;">🔑</div>
+          <div class="account-info">
+            <span class="account-title" id="sidebarKeyDisplay">Developer Key</span>
+            <span class="account-status">✓ Authenticated</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN NEWS VIEW -->
+    <main class="chatgpt-main" style="overflow-y: auto;">
+      <header class="chatgpt-nav">
+        <div class="nav-left">
+          <button id="sidebarToggleBtn" class="icon-btn">☰</button>
+          <div style="font-weight: 700; font-size: 15px; color: #fff;">
+            📰 OneAPI News Radar
+          </div>
+        </div>
+        <div class="nav-right">
+          <div class="gateway-pill">
+            <span class="status-circle online"></span>
+            <span>Gateway /api/v1/proxy/news</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="news-container">
+        <!-- Search Bar -->
+        <div class="news-search-bar">
+          <input type="text" id="newsInput" placeholder="Search technology headlines, AI research, space missions (e.g. quantum, SpaceX, rust)..." value="technology" />
+          <button id="searchNewsBtn" class="news-search-btn">
+            <span>Search</span>
+            <span>→</span>
+          </button>
+        </div>
+
+        <!-- Provider Direct Targeting Toggle -->
+        <div class="provider-toggle-bar">
+          <span style="font-size: 12px; color: #71717a; margin-right: 4px;">Provider Mode:</span>
+          <button class="provider-btn active" data-provider="">⚡ Auto (Cascade)</button>
+          <button class="provider-btn" data-provider="hackernews">HackerNews (Algolia)</button>
+          <button class="provider-btn" data-provider="spaceflight">Spaceflight News (v4)</button>
+        </div>
+
+        <!-- Quick Topics -->
+        <div class="quick-topics">
+          <span class="topic-chip active" data-q="technology">Technology</span>
+          <span class="topic-chip" data-q="artificial intelligence">AI &amp; LLMs</span>
+          <span class="topic-chip" data-q="spaceflight">Spaceflight</span>
+          <span class="topic-chip" data-q="cybersecurity">Cybersecurity</span>
+          <span class="topic-chip" data-q="quantum computing">Quantum</span>
+          <span class="topic-chip" data-q="startups">Startups</span>
+        </div>
+
+        <!-- Failover Telemetry Box -->
+        <div class="failover-status-box" id="failoverNewsBox">
+          <div class="failover-title">
+            <span>⚡ OneAPI News Gateway Failover Telemetry</span>
+          </div>
+          <div class="failover-details">
+            <div>Primary: <strong>HackerNews Algolia API</strong></div>
+            <div>Fallback: <strong>Spaceflight News API (v4)</strong></div>
+            <div>Active Provider: <strong id="newsProviderVal" style="color: #fbbf24;">hackernews</strong></div>
+            <div>Latency: <strong id="newsLatencyVal" style="color: #34d399;">120ms</strong></div>
+            <div>Articles Found: <strong id="newsCountVal">0 articles</strong></div>
+            <div>Failover Status: <strong id="newsFailoverStatusVal" style="color: #34d399;">⚡ Direct Primary Call</strong></div>
+          </div>
+        </div>
+
+        <!-- Articles Grid -->
+        <div class="articles-grid" id="articlesGrid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="oneapi-sdk.js"></script>
+  <script>
+    const apiKey = localStorage.getItem('oneapi_chat_api_key') || localStorage.getItem('oneapi_latest_raw_developer_api_key') || '';
+    const projectId = localStorage.getItem('oneapi_chat_project_id') || localStorage.getItem('oneapi_project_id') || '';
+
+    // Initialize OneAPI SDK (Gateway endpoint handled automatically)
+    const oneapi = new OneAPI({
+      apiKey,
+      projectId,
+    });
+
+    const newsInput = document.getElementById('newsInput');
+    const searchNewsBtn = document.getElementById('searchNewsBtn');
+    const articlesGrid = document.getElementById('articlesGrid');
+    const newsProviderVal = document.getElementById('newsProviderVal');
+    const newsLatencyVal = document.getElementById('newsLatencyVal');
+    const newsCountVal = document.getElementById('newsCountVal');
+    const newsFailoverStatusVal = document.getElementById('newsFailoverStatusVal');
+
+    let currentSelectedProvider = '';
+
+    async function fetchNews(query) {
+      searchNewsBtn.textContent = 'Searching...';
+      articlesGrid.innerHTML = '<div style="color: #a1a1aa; padding: 20px;">Fetching live news through OneAPI gateway...</div>';
+      const startTime = performance.now();
+
+      try {
+        const res = await oneapi.news.search({
+          query,
+          limit: 12,
+          provider: currentSelectedProvider || undefined,
+        });
+
+        const latency = Math.round(performance.now() - startTime);
+        const articles = res.articles || [];
+
+        // Telemetry
+        const finalProv = res._oneapi?.finalProvider || res.provider || 'hackernews';
+        const fallback = Boolean(res._oneapi?.fallbackTriggered);
+
+        newsProviderVal.textContent = finalProv;
+        newsLatencyVal.textContent = latency + 'ms';
+        newsCountVal.textContent = `${articles.length} articles`;
+        newsFailoverStatusVal.textContent = fallback ? '🔄 Fallback Provider Active' : '⚡ Direct Primary Call';
+        newsFailoverStatusVal.style.color = fallback ? '#c084fc' : '#34d399';
+
+        if (articles.length === 0) {
+          articlesGrid.innerHTML = '<div style="color: #a1a1aa; padding: 20px;">No articles found for this search topic.</div>';
+          return;
+        }
+
+        articlesGrid.innerHTML = '';
+        articles.forEach((art) => {
+          const card = document.createElement('div');
+          card.className = 'article-card';
+
+          const dateStr = art.publishedAt ? new Date(art.publishedAt).toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }) : 'Recently';
+
+          card.innerHTML = `
+            <div class="article-top">
+              <div class="article-meta">
+                <span class="source-badge">${art.source || 'News'}</span>
+                <span class="article-date">${dateStr}</span>
+              </div>
+              <div class="article-title">${art.title}</div>
+              <div class="article-snippet">${art.snippet || art.description || 'Click to view complete story.'}</div>
+            </div>
+            <div class="article-bottom">
+              <span class="article-author">By ${art.author || art.source || 'Reporter'}</span>
+              <a href="${art.url}" target="_blank" rel="noopener noreferrer" class="read-link">
+                Read Article →
+              </a>
+            </div>
+          `;
+
+          card.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'A') {
+              window.open(art.url, '_blank');
+            }
+          });
+
+          articlesGrid.appendChild(card);
+        });
+      } catch (err) {
+        articlesGrid.innerHTML = `<div style="color: #f43f5e; padding: 20px;">Error: ${err.message || 'Failed to search news'}</div>`;
+      } finally {
+        searchNewsBtn.textContent = 'Search →';
+      }
+    }
+
+    searchNewsBtn.addEventListener('click', () => {
+      const q = newsInput.value.trim();
+      if (q) fetchNews(q);
+    });
+
+    newsInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const q = newsInput.value.trim();
+        if (q) fetchNews(q);
+      }
+    });
+
+    // Topic quick chips
+    document.querySelectorAll('.topic-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.topic-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        const q = chip.getAttribute('data-q');
+        newsInput.value = q;
+        fetchNews(q);
+      });
+    });
+
+    // Provider buttons
+    document.querySelectorAll('.provider-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.provider-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSelectedProvider = btn.getAttribute('data-provider');
+        const q = newsInput.value.trim() || 'technology';
+        fetchNews(q);
+      });
+    });
+
+    // Sidebar toggles
+    document.getElementById('sidebarToggleBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    });
+    document.getElementById('sidebarCloseBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.add('collapsed');
+    });
+
+    // Initial query
+    fetchNews('technology');
+  </script>
+</body>
+</html>

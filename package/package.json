@@ -1,0 +1,13 @@
+{
+  "name": "oneapi",
+  "version": "0.0.1",
+  "description": "this hackton project",
+  "keywords": [
+    "oneapi"
+  ],
+  "type": "modules",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  }
+}
